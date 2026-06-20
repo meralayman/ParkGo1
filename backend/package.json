@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "migrate:incidents-uuid": "node scripts/run-migrate-incidents-uuid.js"
+    "migrate:incidents-uuid": "node scripts/run-migrate-incidents-uuid.js",
+    "gate-agent": "node scripts/gate-device-agent.js"
   },
   "keywords": [],
   "author": "",

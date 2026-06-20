@@ -1,5 +1,12 @@
 const { parseIntent } = require("../utils/intentParser");
-const { parseUserId } = require("../rbac");
+const {
+  getActiveBookings,
+  getCancellableBookings,
+  formatBookingLine,
+  cancelBookingForUser,
+  cancelAllActiveBookingsForUser,
+  parseReservationId,
+} = require("./bookingChat.service");
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
@@ -9,7 +16,23 @@ function isCustomerRole(role) {
 }
 
 function defaultQuickReplies() {
-  return ["Check parking", "My bookings", "Book now", "Parking prediction"];
+  return ["Check parking", "My bookings", "Cancel booking", "Book now", "Help"];
+}
+
+function cancelConfirmReplies() {
+  return ["Confirm Cancel", "Keep Booking"];
+}
+
+async function buildCancelPickList(pool, userId) {
+  const rows = await getCancellableBookings(pool, userId);
+  return rows.map((row, i) => ({
+    reservationId: String(row.id),
+    index: i + 1,
+    slotNo: row.slot_no,
+    startIso: row.start_time,
+    endIso: row.end_time,
+    label: formatBookingLine(row, i + 1),
+  }));
 }
 
 function levelToGuidance(level) {
@@ -178,7 +201,7 @@ async function processChatMessage(opts) {
       audit("requested help");
       return {
         reply:
-          "Here's what I can do:\n• Check parking — live open bays\n• Parking prediction — Low / Medium / High demand\n• Book now — suggest a time and create a booking\n• My bookings — list your reservations\n• Cancel — cancel your next confirmed booking\n• QR — paste your booking QR string to validate\n• Report issue — I'll send you to the incident form\n\nTip: say something like “park at 6 PM” to start booking.",
+          "Here's what I can do:\n• Check parking — live open bays\n• Parking prediction — Low / Medium / High demand\n• Book now — suggest a time and create a booking\n• My bookings / Show active reservations — your trips\n• Cancel booking — pick one or cancel all (with confirmation)\n• QR — paste your booking QR string to validate\n• Report issue — I'll send you to the incident form\n\nTip: say something like “park at 6 PM” to start booking.",
         quickReplies: defaultQuickReplies(),
         context: { lastIntent: "help" },
       };
@@ -259,6 +282,29 @@ async function processChatMessage(opts) {
         context: { lastIntent: "check_availability" },
       };
     }
+    case "view_active_bookings": {
+      const denied = customerOnly();
+      if (denied) return denied;
+      audit("listed active bookings via chat");
+      const active = await getActiveBookings(pool, userId);
+      if (active.length === 0) {
+        return {
+          reply: "You have no active reservations right now.",
+          quickReplies: defaultQuickReplies(),
+          context: { lastIntent: "view_active_bookings" },
+        };
+      }
+      const lines = active.map((b) => {
+        const start = new Date(b.startTime).toLocaleString();
+        const end = new Date(b.endTime).toLocaleString();
+        return `${b.index}. Slot ${b.slotNo} — ${start} → ${end} (${b.status})`;
+      });
+      return {
+        reply: `Your active reservations:\n${lines.join("\n")}\n\nTo cancel, say “cancel my booking” or “cancel all bookings”.`,
+        quickReplies: ["Cancel booking", "Cancel all bookings", "My bookings"],
+        context: { lastIntent: "view_active_bookings" },
+      };
+    }
     case "view_bookings": {
       const denied = customerOnly();
       if (denied) return denied;
@@ -279,73 +325,169 @@ async function processChatMessage(opts) {
           context: { lastIntent: "view_bookings" },
         };
       }
-      const lines = r.rows.map((row, i) => {
-        const st = String(row.status);
-        const start = new Date(row.start_time).toLocaleString();
-        const end = new Date(row.end_time).toLocaleString();
-        return `${i + 1}. Slot ${row.slot_no} — ${start} → ${end} (${st})`;
-      });
+      const lines = r.rows.map((row, i) => formatBookingLine(row, i + 1));
       return {
-        reply: `Here are your recent bookings:\n${lines.join("\n")}\n\nNeed to cancel? Say cancel my booking (next confirmed trip).`,
-        quickReplies: defaultQuickReplies(),
+        reply: `Here are your recent bookings:\n${lines.join("\n")}\n\nTo cancel a confirmed trip, say “cancel my booking” or pick a number after I list active bookings.`,
+        quickReplies: ["Cancel booking", "Show active reservations", "Book now"],
         context: { lastIntent: "view_bookings" },
       };
     }
-    case "cancel_booking": {
+    case "cancel_booking":
+    case "pick_cancel_booking": {
       const denied = customerOnly();
       if (denied) return denied;
-      let targetId = parsed.entities.reservationId || null;
-      if (targetId && !parseUserId(targetId)) targetId = null;
 
-      if (!targetId) {
-        const next = await pool.query(
-          `SELECT id FROM reservations
-           WHERE user_id = $1 AND status = 'confirmed'
-           ORDER BY start_time ASC
-           LIMIT 1`,
-          [userId]
-        );
-        if (next.rowCount === 0) {
-          return {
-            reply:
-              "You have no confirmed bookings to cancel (only checked-in or past trips may remain). Open My bookings on the dashboard if you need details.",
-            quickReplies: defaultQuickReplies(),
-            context: { lastIntent: "cancel_booking" },
-          };
-        }
-        targetId = next.rows[0].id;
-      }
-
-      const own = await pool.query(
-        `SELECT id FROM reservations WHERE id = $1 AND user_id = $2 AND status = 'confirmed'`,
-        [targetId, userId]
-      );
-      if (own.rowCount === 0) {
+      const pickList = await buildCancelPickList(pool, userId);
+      if (pickList.length === 0) {
         return {
           reply:
-            "That booking can't be cancelled from your account, or it's no longer in confirmed status.",
+            "You have no active confirmed bookings to cancel. Checked-in or completed trips cannot be cancelled here.",
           quickReplies: defaultQuickReplies(),
-          context: { lastIntent: "cancel_booking" },
+          context: { lastIntent: "cancel_booking", pendingCancel: null, cancelPickList: null },
         };
       }
 
-      const patch = await fetchJsonSafe(
-        `${internalApiBase}/reservations/${targetId}/cancel`,
-        { method: "PATCH", headers: { Accept: "application/json" } }
-      );
-      if (!patch.ok) {
+      let target = null;
+      if (intent === "pick_cancel_booking" && parsed.entities.pickIndex) {
+        target = pickList.find((p) => p.index === parsed.entities.pickIndex) || null;
+      }
+
+      let targetId = parseReservationId(parsed.entities.reservationId);
+      if (!target && targetId) {
+        target = pickList.find((p) => String(p.reservationId) === String(targetId)) || null;
+      }
+
+      if (!target && pickList.length === 1) {
+        target = pickList[0];
+      }
+
+      if (!target) {
+        audit("started cancel booking picker");
+        const lines = pickList.map((p) => p.label);
+        const numberReplies = pickList.slice(0, 6).map((p) => String(p.index));
         return {
-          reply: "Something went wrong cancelling that booking. Please try again from your dashboard.",
-          quickReplies: defaultQuickReplies(),
-          context: { lastIntent: "cancel_booking" },
+          reply: `Here are your active bookings you can cancel:\n${lines.join("\n")}\n\nReply with the number (e.g. 1) to choose one, or say “cancel all bookings”.`,
+          quickReplies: [...numberReplies, "Cancel all bookings", "Keep Booking"],
+          context: {
+            lastIntent: "cancel_booking",
+            cancelPickList: pickList,
+            pendingCancel: null,
+            pendingCancelAll: false,
+          },
         };
       }
-      audit(`cancelled booking ${targetId} via chatbot`);
+
+      audit(`selected booking ${target.reservationId} to cancel`);
       return {
-        reply:
-          "Your booking was cancelled and the bay was released. You can book again anytime.",
+        reply: `Are you sure you want to cancel this booking?\n\n${target.label}`,
+        quickReplies: cancelConfirmReplies(),
+        context: {
+          lastIntent: "cancel_booking",
+          pendingCancel: {
+            reservationId: target.reservationId,
+            slotNo: target.slotNo,
+            label: target.label,
+          },
+          pendingCancelAll: false,
+          cancelPickList: pickList,
+        },
+      };
+    }
+    case "cancel_all_bookings": {
+      const denied = customerOnly();
+      if (denied) return denied;
+      const pickList = await buildCancelPickList(pool, userId);
+      if (pickList.length === 0) {
+        return {
+          reply: "You have no active confirmed bookings to cancel.",
+          quickReplies: defaultQuickReplies(),
+          context: { pendingCancelAll: false, cancelPickList: null },
+        };
+      }
+      audit("requested cancel all bookings");
+      const lines = pickList.map((p) => p.label);
+      return {
+        reply: `Are you sure you want to cancel all ${pickList.length} active booking(s)?\n\n${lines.join("\n")}`,
+        quickReplies: cancelConfirmReplies(),
+        context: {
+          lastIntent: "cancel_all_bookings",
+          pendingCancelAll: true,
+          pendingCancel: null,
+          cancelPickList: pickList,
+        },
+      };
+    }
+    case "confirm_cancel": {
+      const denied = customerOnly();
+      if (denied) return denied;
+
+      if (clientContext.pendingCancelAll) {
+        const out = await cancelAllActiveBookingsForUser(pool, userId, logAudit);
+        return {
+          reply: out.message,
+          quickReplies: defaultQuickReplies(),
+          context: {
+            lastIntent: "confirm_cancel",
+            pendingCancel: null,
+            pendingCancelAll: false,
+            cancelPickList: null,
+            reservationUpdated: out.cancelledCount > 0,
+            lastCancelledId: null,
+          },
+        };
+      }
+
+      const pending = clientContext.pendingCancel;
+      if (!pending?.reservationId) {
+        return {
+          reply: "I don't have a booking selected to cancel. Say “cancel my booking” first.",
+          quickReplies: defaultQuickReplies(),
+          context: { pendingCancel: null, pendingCancelAll: false },
+        };
+      }
+
+      const out = await cancelBookingForUser(
+        pool,
+        userId,
+        pending.reservationId,
+        logAudit
+      );
+      if (!out.ok) {
+        return {
+          reply: out.error || "Could not cancel that booking. Please try again.",
+          quickReplies: defaultQuickReplies(),
+          context: {
+            pendingCancel: null,
+            pendingCancelAll: false,
+            cancelPickList: null,
+          },
+        };
+      }
+
+      return {
+        reply: out.message,
         quickReplies: defaultQuickReplies(),
-        context: { lastIntent: "cancel_booking", reservationUpdated: true },
+        context: {
+          lastIntent: "confirm_cancel",
+          pendingCancel: null,
+          pendingCancelAll: false,
+          cancelPickList: null,
+          reservationUpdated: true,
+          lastCancelledId: out.reservationId,
+        },
+      };
+    }
+    case "reject_cancel": {
+      if (userId) audit("declined cancellation in chat");
+      return {
+        reply: "Okay — your booking was kept. Let me know if you need anything else.",
+        quickReplies: defaultQuickReplies(),
+        context: {
+          pendingCancel: null,
+          pendingCancelAll: false,
+          cancelPickList: null,
+          lastIntent: "reject_cancel",
+        },
       };
     }
     case "validate_qr": {

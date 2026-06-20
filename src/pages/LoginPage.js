@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
+import { getStoredAccessToken } from '../utils/authFetch';
 import Navbar from '../components/Navbar';
 import './AuthPages.css';
 
@@ -26,6 +27,8 @@ const LoginPage = () => {
   const location = useLocation();
   const { login, loginWithGoogle, user } = useAuth();
   const fromSignup = location.state?.fromSignup;
+  const sessionExpired = new URLSearchParams(location.search).get('session') === 'expired';
+  const nextAfterLogin = new URLSearchParams(location.search).get('next');
   /** true when opening /login/admin or redirect from /admin while logged out */
   const isAdminSignIn =
     location.pathname === '/login/admin' || location.state?.requireAdmin;
@@ -56,7 +59,17 @@ const LoginPage = () => {
       });
       if (result.success) {
         const roleRoutes = { admin: '/admin', user: '/user', gatekeeper: '/gatekeeper' };
-        navigate(roleRoutes[result.user.role] || '/user');
+        const path = nextAfterLogin
+          ? (() => {
+              try {
+                const d = decodeURIComponent(nextAfterLogin);
+                return d.startsWith('/') && !d.startsWith('//') ? d : roleRoutes[result.user.role] || '/user';
+              } catch {
+                return roleRoutes[result.user.role] || '/user';
+              }
+            })()
+          : roleRoutes[result.user.role] || '/user';
+        navigate(path, { replace: true });
       } else setError(result.error);
       setGoogleLoading(false);
     },
@@ -86,16 +99,32 @@ const LoginPage = () => {
     return () => clearInterval(id);
   }, [lockoutEnd]);
 
-  useEffect(() => {
-    // Redirect if already logged in
-    if (user) {
-      const roleRoutes = {
-        admin: '/admin',
-        user: '/user',
-        gatekeeper: '/gatekeeper'
-      };
-      navigate(roleRoutes[user.role] || '/user');
+  const roleHome = (role) => {
+    const roleRoutes = { admin: '/admin', user: '/user', gatekeeper: '/gatekeeper' };
+    return roleRoutes[role] || '/user';
+  };
+
+  const postLoginPath = (role) => {
+    if (nextAfterLogin) {
+      try {
+        const decoded = decodeURIComponent(nextAfterLogin);
+        if (decoded.startsWith('/') && !decoded.startsWith('//')) return decoded;
+      } catch {
+        /* ignore */
+      }
     }
+    const from = location.state?.from;
+    if (from?.pathname) {
+      return `${from.pathname}${from.search || ''}`;
+    }
+    return roleHome(role);
+  };
+
+  useEffect(() => {
+    if (user && getStoredAccessToken()) {
+      navigate(postLoginPath(user.role), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const handleChange = (e) => {
@@ -129,13 +158,7 @@ const LoginPage = () => {
     setLoading(false);
 
     if (result.success) {
-      // Redirect based on role
-      const roleRoutes = {
-        admin: '/admin',
-        user: '/user',
-        gatekeeper: '/gatekeeper'
-      };
-      navigate(roleRoutes[result.user.role] || '/user');
+      navigate(postLoginPath(result.user.role), { replace: true });
     } else {
       const errMsg = result.error || 'Invalid username/email or password';
       setError(errMsg);
@@ -155,6 +178,18 @@ const LoginPage = () => {
       <Navbar showAuthLinks />
       <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-card-logo">
+          <img
+            src={`${process.env.PUBLIC_URL || ''}/parkgo-logo.png`}
+            alt="ParkGO"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              const fb = e.target.nextElementSibling;
+              if (fb) fb.style.display = 'block';
+            }}
+          />
+          <span className="auth-card-logo-fallback" style={{ display: 'none' }}>ParkGO</span>
+        </div>
         <h2>{isAdminSignIn ? 'Admin sign in' : 'Welcome Back'}</h2>
         <p className="auth-subtitle">
           {isAdminSignIn
@@ -168,6 +203,11 @@ const LoginPage = () => {
         )}
 
         {fromSignup && <div className="success-message">Account created successfully! Please log in.</div>}
+        {sessionExpired && (
+          <div className="error-message" role="status">
+            Your session expired. Please log in again.
+          </div>
+        )}
         {error && <div className="error-message">{error}</div>}
         {isPasswordLocked && lockoutLabel && (
           <div className="error-message" style={{ marginTop: error ? 8 : 0 }} role="status">

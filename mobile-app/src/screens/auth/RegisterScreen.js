@@ -22,7 +22,6 @@ export function RegisterScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('user'); // user | gatekeeper
   const [error, setError] = useState('');
 
   const validate = () => {
@@ -33,7 +32,6 @@ export function RegisterScreen({ navigation }) {
     if (!password) return 'Password is required';
     if (password.length < 8) return 'Password must be at least 8 characters';
     if (password !== confirmPassword) return 'Passwords do not match';
-    if (!['user', 'gatekeeper'].includes(String(role).toLowerCase())) return 'Role must be user or gatekeeper';
     return null;
   };
 
@@ -50,46 +48,32 @@ export function RegisterScreen({ navigation }) {
         phoneNumber: phoneNumber.trim() || undefined,
         password,
         confirmPassword,
-        role,
+        role: 'user',
       });
     } catch (e) {
       const msg = e?.message || 'Registration failed';
       setError(msg);
       if (e?.code === 'RATE_LIMIT') Alert.alert('Please wait', msg);
+      else if (e?.status === 409) {
+        Alert.alert('Account already exists', `${msg}\n\nTry logging in instead.`, [
+          { text: 'Login', onPress: () => navigation.navigate('Login') },
+          { text: 'OK', style: 'cancel' },
+        ]);
+      }
     }
   };
 
   return (
     <LandingBackground>
       <PublicNavbar navigation={navigation} />
-      <Screen transparent contentContainerStyle={{ paddingTop: 8, gap: 12 }}>
-      <Card>
-        <Text style={{ color: Colors.text, fontSize: 20, fontWeight: '900' }}>Create account</Text>
-        <Text style={{ color: Colors.muted }}>
-          Role:{' '}
-          <Text style={{ color: Colors.text, fontWeight: '800' }}>
-            {role === 'gatekeeper' ? 'Gatekeeper' : 'User'}
-          </Text>
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Button
-            title="User"
-            tone={role === 'user' ? 'primary' : 'warning'}
-            onPress={() => setRole('user')}
-            disabled={busy}
-          />
-          <Button
-            title="Gatekeeper"
-            tone={role === 'gatekeeper' ? 'primary' : 'warning'}
-            onPress={() => setRole('gatekeeper')}
-            disabled={busy}
-          />
-        </View>
-      </Card>
-
+      <Screen transparent contentContainerStyle={{ paddingTop: 16, gap: 16 }}>
       <Banner tone="danger" text={error} />
 
       <Card>
+        <View style={{ alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ color: Colors.text, fontSize: 22, fontWeight: '700' }}>Create account</Text>
+          <Text style={{ color: Colors.muted, fontSize: 14, marginTop: 4 }}>Sign up to get started with ParkGo</Text>
+        </View>
         <TextField label="First name" value={firstName} onChangeText={setFirstName} placeholder="First name" />
         <TextField label="Last name" value={lastName} onChangeText={setLastName} placeholder="Last name" />
         <TextField label="Username" value={username} onChangeText={setUsername} placeholder="username" />
@@ -115,12 +99,14 @@ export function RegisterScreen({ navigation }) {
           placeholder="••••••••"
           secureTextEntry
         />
-        <Button title="Register" onPress={onSubmit} loading={busy} />
+        <View style={{ marginTop: 4 }}>
+          <Button title="Register" onPress={onSubmit} loading={busy} size="lg" />
+        </View>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
-          <Text style={{ color: Colors.muted }}>Already have an account?</Text>
-          <Pressable onPress={() => navigation.navigate('Login')}>
-            <Text style={{ color: Colors.logoBlueLight, fontWeight: '800' }}>Login</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 }}>
+          <Text style={{ color: Colors.muted, fontSize: 14 }}>Already have an account?</Text>
+          <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8}>
+            <Text style={{ color: Colors.logoBlueLight, fontWeight: '700', fontSize: 14 }}>Login</Text>
           </Pressable>
         </View>
       </Card>

@@ -6,7 +6,21 @@ import './Dashboard.css';
 import { formatEgp } from '../utils/formatEgp';
 
 import { API_BASE } from '../config/apiOrigin';
-import { fetchWithAuth, safeAdminFetchJson } from '../utils/authFetch';
+import {
+  fetchAnalytics,
+  fetchAdminUsers,
+  fetchAdminReservations,
+  fetchAdminIncidents,
+  fetchAdminLogs,
+  fetchUserHistory,
+  fetchSecurityAlerts,
+  createAdminUser,
+  updateAdminUser,
+  deleteAdminUser,
+  createAdminSlot,
+  updateAdminSlot,
+} from '../api/adminApi';
+import { fetchSlots } from '../api/slotApi';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -21,13 +35,8 @@ const AdminDashboard = () => {
     const poll = async () => {
       const afterId = Math.max(0, parseInt(localStorage.getItem(idKey) || '0', 10) || 0);
       try {
-        const res = await fetch(
-          `${API_BASE}/admin/security-alerts?userId=${encodeURIComponent(
-            user.id
-          )}&afterId=${afterId}`
-        );
-        const data = await res.json();
-        if (!res.ok || !data.ok) return;
+        const data = await fetchSecurityAlerts(user.id, afterId);
+        if (!data.ok) return;
         const alerts = data.alerts || [];
         if (alerts.length === 0) return;
         const max = Math.max(...alerts.map((a) => a.id));
@@ -108,20 +117,16 @@ const AdminDashboard = () => {
       const act = String(filterLogActionRef.current || '').trim();
       if (uid) qs.set('user_id', uid);
       if (act) qs.set('action', act);
-      const path = '/admin/logs' + (qs.toString() ? `?${qs.toString()}` : '');
-      const result = await safeAdminFetchJson(path);
-      if (result.error) {
+      const result = await fetchAdminLogs({
+        userId: uid || undefined,
+        action: act || undefined,
+      });
+      if (!result.ok) {
         setSecurityLogs([]);
         setSecurityLogsError(result.error);
         return;
       }
-      const data = result.data;
-      if (data && data.ok && Array.isArray(data.logs)) {
-        setSecurityLogs(data.logs);
-      } else {
-        setSecurityLogs([]);
-        setSecurityLogsError((data && (data.error || data.message)) || 'Failed to load security logs');
-      }
+      setSecurityLogs(result.logs);
     } catch (err) {
       setSecurityLogs([]);
       setSecurityLogsError(err.message || 'Cannot load security logs');
@@ -134,19 +139,13 @@ const AdminDashboard = () => {
     setAnalyticsLoading(true);
     setAnalyticsError('');
     try {
-      const result = await safeAdminFetchJson('/admin/analytics');
-      if (result.error) {
+      const result = await fetchAnalytics();
+      if (!result.ok) {
         setAnalytics(null);
         setAnalyticsError(result.error);
         return;
       }
-      const data = result.data;
-      if (data && data.ok && data.analytics) {
-        setAnalytics(data.analytics);
-      } else {
-        setAnalytics(null);
-        setAnalyticsError((data && (data.error || data.message)) || 'Failed to load analytics');
-      }
+      setAnalytics(result.analytics);
     } catch (err) {
       setAnalytics(null);
       setAnalyticsError(err.message || 'Cannot reach server');
@@ -183,10 +182,9 @@ const AdminDashboard = () => {
     if (userHistoryUserId) {
       setUserHistoryLoading(true);
       setUserHistoryData(null);
-      fetchWithAuth(`${API_BASE}/admin/users/${userHistoryUserId}/history`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.ok) setUserHistoryData(data);
+      fetchUserHistory(userHistoryUserId)
+        .then((result) => {
+          if (result.ok) setUserHistoryData(result.data);
           else setUserHistoryData(null);
         })
         .catch(() => setUserHistoryData(null))
@@ -199,10 +197,8 @@ const AdminDashboard = () => {
   const loadUsers = async () => {
     setAccountsLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/users`);
-      const data = await res.json();
-      if (data.ok) setAccounts(data.users || []);
-      else setAccounts([]);
+      const result = await fetchAdminUsers();
+      setAccounts(result.ok ? result.users : []);
     } catch {
       setAccounts([]);
     } finally {
@@ -213,10 +209,8 @@ const AdminDashboard = () => {
   const loadSlots = async () => {
     setSlotsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/slots`);
-      const data = await res.json();
-      if (data.ok) setSlots(data.slots || []);
-      else setSlots([]);
+      const result = await fetchSlots();
+      setSlots(result.ok ? result.slots : []);
     } catch {
       setSlots([]);
     } finally {
@@ -227,10 +221,8 @@ const AdminDashboard = () => {
   const loadReservations = async () => {
     setReservationsLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/reservations`);
-      const data = await res.json();
-      if (data.ok) setReservations(data.reservations || []);
-      else setReservations([]);
+      const result = await fetchAdminReservations();
+      setReservations(result.ok ? result.reservations : []);
     } catch {
       setReservations([]);
     } finally {
@@ -241,10 +233,8 @@ const AdminDashboard = () => {
   const loadIncidents = async () => {
     setIncidentsLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/incidents`);
-      const data = await res.json();
-      if (data.ok) setIncidents(data.incidents || []);
-      else setIncidents([]);
+      const result = await fetchAdminIncidents();
+      setIncidents(result.ok ? result.incidents : []);
     } catch {
       setIncidents([]);
     } finally {
@@ -260,15 +250,10 @@ const AdminDashboard = () => {
 
   const updateSlotState = async (slotNo, newState) => {
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/slots/${encodeURIComponent(slotNo)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: newState }),
-      });
-      const data = await res.json();
-      if (data.ok) loadSlots();
-      else toast(data.error || data.message || 'Failed to update slot', { variant: 'error' });
-    } catch (e) {
+      const result = await updateAdminSlot(slotNo, newState);
+      if (result.ok) loadSlots();
+      else toast(result.error || 'Failed to update slot', { variant: 'error' });
+    } catch {
       toast('Network error. Is the backend running?', { variant: 'error' });
     }
   };
@@ -278,18 +263,13 @@ const AdminDashboard = () => {
     const name = newSlotNo.trim();
     if (!name) return;
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/slots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slot_no: name }),
-      });
-      const data = await res.json();
-      if (data.ok) {
+      const result = await createAdminSlot(name);
+      if (result.ok) {
         setNewSlotNo('');
         setShowAddSlotModal(false);
         loadSlots();
       } else {
-        toast(data.error || data.message || 'Failed to add slot', { variant: 'error' });
+        toast(result.error || 'Failed to add slot', { variant: 'error' });
       }
     } catch {
       toast('Network error. Is the backend running?', { variant: 'error' });
@@ -321,18 +301,13 @@ const AdminDashboard = () => {
       return;
     }
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.ok) {
+      const result = await createAdminUser(body);
+      if (result.ok) {
         loadUsers();
         resetForm();
         setShowAddModal(false);
       } else {
-        toast(data.error || data.message || 'Failed to create user', { variant: 'error' });
+        toast(result.error || 'Failed to create user', { variant: 'error' });
       }
     } catch {
       toast('Network error. Is the backend running?', { variant: 'error' });
@@ -345,19 +320,14 @@ const AdminDashboard = () => {
     delete body.username;
     if (!body.password) delete body.password;
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/users/${editingAccount.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.ok) {
+      const result = await updateAdminUser(editingAccount.id, body);
+      if (result.ok) {
         loadUsers();
         resetForm();
         setEditingAccount(null);
         setShowAddModal(false);
       } else {
-        toast(data.error || data.message || 'Failed to update user', { variant: 'error' });
+        toast(result.error || 'Failed to update user', { variant: 'error' });
       }
     } catch {
       toast('Network error. Is the backend running?', { variant: 'error' });
@@ -374,12 +344,11 @@ const AdminDashboard = () => {
     });
     if (!ok) return;
     try {
-      const res = await fetchWithAuth(`${API_BASE}/admin/users/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.ok) {
+      const result = await deleteAdminUser(id);
+      if (result.ok) {
         loadUsers();
         toast('User deleted.', { variant: 'success' });
-      } else toast(data.error || data.message || 'Failed to delete user', { variant: 'error' });
+      } else toast(result.error || 'Failed to delete user', { variant: 'error' });
     } catch {
       toast('Network error. Is the backend running?', { variant: 'error' });
     }

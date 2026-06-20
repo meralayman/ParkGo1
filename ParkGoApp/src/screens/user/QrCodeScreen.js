@@ -102,8 +102,8 @@ export function QrCodeScreen({ navigation }) {
       <Card>
         <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Your booking QR</Text>
         <Text style={{ color: Colors.muted }}>
-          This QR is issued by ParkGo after you confirm a booking. Gate staff scan it against the server — it is not
-          fabricated in the app.
+          This QR is issued by ParkGo after you confirm a booking. Hold it to the parking gate camera or gatekeeper
+          scanner — the server validates entry and exit automatically.
         </Text>
       </Card>
 

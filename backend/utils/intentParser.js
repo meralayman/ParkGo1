@@ -119,6 +119,26 @@ function parseIntent(text, ctx = {}) {
     if (no) return { intent: "reject_booking", entities: {}, sanitized };
   }
 
+  const confirmCancel =
+    /^(confirm cancel|yes,?\s*cancel|cancel it|yes)$/i.test(lower.trim()) ||
+    lower.trim() === "confirm cancel";
+  const keepBooking =
+    /^(keep booking|don't cancel|do not cancel|no,?\s*keep|keep it|no)$/i.test(lower.trim()) ||
+    lower.trim() === "keep booking";
+
+  if (ctx && (ctx.pendingCancel || ctx.pendingCancelAll)) {
+    if (confirmCancel) return { intent: "confirm_cancel", entities: {}, sanitized };
+    if (keepBooking) return { intent: "reject_cancel", entities: {}, sanitized };
+  }
+
+  if (ctx && Array.isArray(ctx.cancelPickList) && /^\d{1,2}$/.test(lower.trim())) {
+    return {
+      intent: "pick_cancel_booking",
+      entities: { pickIndex: Number(lower.trim()) },
+      sanitized,
+    };
+  }
+
   if (
     yes &&
     ctx &&
@@ -156,11 +176,23 @@ function parseIntent(text, ctx = {}) {
   }
 
   if (
-    /\b(my bookings|my reservation|my reservations|upcoming booking|list bookings)\b/.test(
+    /\b(active reservations?|active bookings?|upcoming reservations?|upcoming bookings?|show active)\b/.test(
+      lower
+    )
+  ) {
+    return { intent: "view_active_bookings", entities: {}, sanitized };
+  }
+
+  if (
+    /\b(my bookings|my reservation|my reservations|upcoming booking|list bookings|show my bookings)\b/.test(
       lower
     )
   ) {
     return { intent: "view_bookings", entities: {}, sanitized };
+  }
+
+  if (/\bcancel\s+all\b/.test(lower) && /\b(booking|reservation)s?\b/.test(lower)) {
+    return { intent: "cancel_all_bookings", entities: {}, sanitized };
   }
 
   if (
@@ -172,14 +204,23 @@ function parseIntent(text, ctx = {}) {
     return { intent: "check_availability", entities: {}, sanitized };
   }
 
+  const resIdFromText =
+    lower.match(/reservation\s*#?\s*([0-9a-f-]{8,}|\d+)/i)?.[1] ||
+    lower.match(/booking\s*#?\s*([0-9a-f-]{8,}|\d+)/i)?.[1] ||
+    null;
+
   if (/\b(cancel|delete)\b/.test(lower) && /\b(booking|reservation)\b/.test(lower)) {
-    return { intent: "cancel_booking", entities: {}, sanitized };
+    return {
+      intent: "cancel_booking",
+      entities: { reservationId: resIdFromText },
+      sanitized,
+    };
   }
   if (
     /^\s*cancel\s*$/i.test(sanitized.trim()) ||
-    /\bcancel my (booking|reservation)\b/.test(lower)
+    /\bcancel my (booking|reservation)s?\b/.test(lower)
   ) {
-    return { intent: "cancel_booking", entities: {}, sanitized };
+    return { intent: "cancel_booking", entities: { reservationId: resIdFromText }, sanitized };
   }
 
   const clock = extractClock(lower);
@@ -223,6 +264,10 @@ function parseIntent(text, ctx = {}) {
 
   if (uuidMatch && /\b(cancel|booking)\b/.test(lower)) {
     return { intent: "cancel_booking", entities: { reservationId: uuidMatch[0] }, sanitized };
+  }
+
+  if (resIdFromText && /\bcancel\b/.test(lower)) {
+    return { intent: "cancel_booking", entities: { reservationId: resIdFromText }, sanitized };
   }
 
   return { intent: "unknown", entities: {}, sanitized };

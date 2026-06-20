@@ -1,16 +1,22 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getStoredAccessToken } from '../utils/authFetch';
 
 const ProtectedRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const hasToken = Boolean(getStoredAccessToken());
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return (
+      <div className="loading parkgo-route-loading" role="status" aria-live="polite">
+        Loading your account…
+      </div>
+    );
   }
 
-  if (!user) {
+  if (!user || !hasToken) {
     return (
       <Navigate
         to={role === 'admin' ? '/login/admin' : '/login'}

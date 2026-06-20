@@ -9,6 +9,13 @@ module.exports = function setupProxy(app) {
   const opts = { target, changeOrigin: true };
   /** Ensures /api/* (e.g. /api/forecast) hits Express; package.json "proxy" alone can miss some paths. */
   app.use('/api', createProxyMiddleware(opts));
+  app.use('/auth', createProxyMiddleware(opts));
+  app.use('/slots', createProxyMiddleware(opts));
+  app.use('/reservations', createProxyMiddleware(opts));
+  app.use('/gate', createProxyMiddleware(opts));
+  app.use('/admin', createProxyMiddleware(opts));
+  app.use('/paymob', createProxyMiddleware(opts));
   app.use('/incidents', createProxyMiddleware(opts));
   app.use('/uploads', createProxyMiddleware(opts));
+  app.use('/health', createProxyMiddleware(opts));
 };

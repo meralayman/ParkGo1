@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
 import Navbar from '../components/Navbar';
-import { apiUrl } from '../config/apiBase';
-import { fetchWithAuth } from '../utils/authFetch';
+import { submitGatekeeperIncident } from '../api/incidentApi';
 import './Dashboard.css';
 
 const ReportIncidentGatekeeperPage = () => {
@@ -57,27 +56,9 @@ const ReportIncidentGatekeeperPage = () => {
       formData.append('gatekeeperUserId', String(user.id));
       if (photo) formData.append('photo', photo);
 
-      const res = await fetchWithAuth(apiUrl('/incidents/gatekeeper'), {
-        method: 'POST',
-        body: formData,
-      });
-      const responseBody = await res.text();
-      let data = {};
-      try {
-        data = responseBody ? JSON.parse(responseBody) : {};
-      } catch {
-        data = {};
-      }
-
-      if (!res.ok || !data.ok) {
-        const trimmed = (responseBody || '').trim();
-        const looksHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<');
-        const hint = looksHtml
-          ? 'The API returned a webpage instead of JSON. Restart the backend from the project backend folder (node server.js) so POST /incidents/gatekeeper is registered.'
-          : null;
-        toast(data.error || hint || trimmed.slice(0, 200) || 'Could not submit your report. Please try again.', {
-          variant: 'error',
-        });
+      const result = await submitGatekeeperIncident(formData);
+      if (!result.ok) {
+        toast(result.error || 'Could not submit your report. Please try again.', { variant: 'error' });
         return;
       }
 

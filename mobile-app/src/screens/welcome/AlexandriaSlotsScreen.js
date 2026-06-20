@@ -1,21 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pressable, Text, View, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
-import { LandingBackground } from '../../components/LandingBackground';
 import { PublicNavbar } from '../../components/PublicNavbar';
 import { Screen } from '../../components/Screen';
 import { Banner } from '../../components/Banner';
-import { SlotGrid } from '../../components/SlotGrid';
+import { Button } from '../../components/Button';
+import { AlexandriaParkingGrid } from '../../components/AlexandriaParkingGrid';
+import { SectionTitle, SectionHint, HintGreen } from '../../components/SectionTitle';
 import { Colors } from '../../utils/colors';
 import { getSlots } from '../../services/parkgo.service';
 import { LOT_NAME } from '../../constants/alexandriaLot';
 import { PARKGO_PENDING_SLOT_KEY } from '../../constants/pendingSlot';
 
 export function AlexandriaSlotsScreen({ navigation }) {
-  const { width } = useWindowDimensions();
-  const padH = width < 360 ? 14 : width < 480 ? 16 : width < 768 ? 20 : 26;
-  const titleSize = width < 360 ? 21 : width < 420 ? 22 : 24;
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,49 +73,58 @@ export function AlexandriaSlotsScreen({ navigation }) {
   };
 
   return (
-    <LandingBackground>
+    <>
       <PublicNavbar navigation={navigation} />
-      <Screen transparent scroll contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: padH, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
-        <Pressable hitSlop={8} onPress={() => navigation.navigate('BookParking')} style={{ marginBottom: 8 }}>
-          <Text style={{ color: Colors.logoBlueLight, fontWeight: '800', fontSize: 15 }}>← Book parking</Text>
+      <Screen contentContainerStyle={{ paddingTop: 8 }}>
+        <Pressable onPress={() => navigation.navigate('BookParking')}>
+          <Text style={{ color: Colors.logoBlueLight, fontWeight: '600', marginBottom: 12 }}>← Book parking</Text>
         </Pressable>
 
-        <Text style={{ color: Colors.text, fontSize: titleSize, fontWeight: '900', marginBottom: 6 }}>{LOT_NAME}</Text>
-        <Text style={{ color: Colors.muted, fontSize: width < 380 ? 14 : 15, marginBottom: 16, lineHeight: 22 }}>
-          Pick an available slot to continue booking.
-        </Text>
+        <Text style={{ color: Colors.text, fontSize: 22, fontWeight: '700', marginBottom: 6 }}>{LOT_NAME}</Text>
+        <Text style={{ color: Colors.muted, marginBottom: 16 }}>Pick an available slot to continue booking.</Text>
+
+        <Banner tone="danger" text={error} />
+
+        <SectionTitle title="Parking map — choose your bay">
+          <SectionHint>
+            <Text style={{ color: Colors.muted, fontSize: 15, lineHeight: 22 }}>
+              Tap a <HintGreen>green</HintGreen> bay to select it.
+            </Text>
+          </SectionHint>
+        </SectionTitle>
 
         {loading ? (
           <ActivityIndicator color={Colors.logoBlueLight} style={{ marginVertical: 24 }} />
-        ) : error ? (
-          <Banner tone="danger" text={error} />
-        ) : (
-          <SlotGrid slots={slots} selectedSlotNo={selectedSlotNo} onSelect={handleSelect} showLegend />
+        ) : error ? null : (
+          <AlexandriaParkingGrid
+            slots={slots}
+            selectedSlotNo={selectedSlotNo}
+            onSlotPress={handleSelect}
+            showLegend
+          />
         )}
 
         {selectedSlotNo && !loading && !error ? (
-          <View style={{ marginTop: 20, gap: 12 }}>
-            <Text style={{ color: Colors.muted, lineHeight: 22 }}>
-              Slot <Text style={{ color: Colors.text, fontWeight: '900' }}>{selectedSlotNo}</Text> selected. After you log
-              in, open the Booking tab — your spot stays selected.
+          <View
+            style={{
+              marginTop: 16,
+              padding: 14,
+              backgroundColor: Colors.elevated,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: Colors.border,
+              gap: 10,
+            }}
+          >
+            <Text style={{ color: Colors.text, fontSize: 15 }}>
+              Slot <Text style={{ fontWeight: '800' }}>{selectedSlotNo}</Text> selected. After you log in, this spot
+              stays selected for your reservation.
             </Text>
-            <Pressable
-              onPress={() => navigation.navigate('Login')}
-              style={{
-                backgroundColor: Colors.logoBlue,
-                borderRadius: 12,
-                paddingVertical: 14,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '800' }}>Continue to login</Text>
-            </Pressable>
-            <Pressable onPress={handleClear} style={{ paddingVertical: 10, alignItems: 'center' }}>
-              <Text style={{ color: Colors.muted, fontWeight: '700' }}>Clear selection</Text>
-            </Pressable>
+            <Button title="Continue to login" onPress={() => navigation.navigate('Login')} />
+            <Button title="Clear selection" onPress={handleClear} tone="secondary" />
           </View>
         ) : null}
       </Screen>
-    </LandingBackground>
+    </>
   );
 }

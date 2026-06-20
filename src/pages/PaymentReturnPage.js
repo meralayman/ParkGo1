@@ -3,9 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "./AuthPages.css";
 import { PARKGO_PENDING_SLOT_KEY } from "../constants/pendingSlot";
+import { createReservation } from "../api/bookingApi";
 
-import { API_BASE } from "../config/apiBase";
-import { fetchWithAuth } from "../utils/authFetch";
 const STORAGE_KEY = "parkgo_pay_pending";
 
 export default function PaymentReturnPage() {
@@ -32,19 +31,14 @@ export default function PaymentReturnPage() {
     }
 
     try {
-      const res = await fetchWithAuth(`${API_BASE}/reservations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: pending.userId,
-          startTime: pending.startTime,
-          endTime: pending.endTime,
-          totalAmount: pending.totalAmount,
-          paymentMethod: "card",
-          slotNo: pending.slotNo,
-        }),
+      const result = await createReservation({
+        userId: pending.userId,
+        startTime: pending.startTime,
+        endTime: pending.endTime,
+        totalAmount: pending.totalAmount,
+        paymentMethod: "card",
+        slotNo: pending.slotNo,
       });
-      const data = await res.json();
       sessionStorage.removeItem(STORAGE_KEY);
       try {
         localStorage.removeItem(PARKGO_PENDING_SLOT_KEY);
@@ -52,8 +46,8 @@ export default function PaymentReturnPage() {
         /* ignore */
       }
 
-      if (!data.ok) {
-        setMsg(data.error || "Could not create reservation after payment.");
+      if (!result.ok) {
+        setMsg(result.error || "Could not create reservation after payment.");
         setCanRetry(true);
         return;
       }
@@ -68,7 +62,6 @@ export default function PaymentReturnPage() {
     if (ran.current) return;
     ran.current = true;
 
-    // Paymob usually returns success=true/false, but we keep this tolerant.
     const failed = params.get("success") === "false" || params.get("success") === "False";
     if (failed) {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -104,4 +97,3 @@ export default function PaymentReturnPage() {
     </div>
   );
 }
-

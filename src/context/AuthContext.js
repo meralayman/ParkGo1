@@ -1,12 +1,13 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { API_BASE } from '../config/apiOrigin';
 import {
-  persistSession,
-  clearSessionStorage,
-  parkgoFetch,
-  getStoredAccessToken,
-  getStoredRefreshToken,
-} from '../utils/authFetch';
+  login as apiLogin,
+  signup as apiSignup,
+  loginWithGoogle as apiLoginWithGoogle,
+  logout as apiLogout,
+  fetchCurrentUser,
+} from '../api/authApi';
+import { persistSession, clearSessionStorage, getStoredAccessToken } from '../utils/authFetch';
+import { unreachableBackendHint } from '../config/apiOrigin';
 
 const AuthContext = createContext();
 
@@ -23,11 +24,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('parkgo_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = getStoredAccessToken();
+        const storedUser = localStorage.getItem('parkgo_user');
+        if (storedUser && token) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch {
+            /* ignore corrupt cache */
+          }
+        }
+        if (token) {
+          const me = await fetchCurrentUser();
+          if (!cancelled) {
+            if (me) {
+              setUser(me);
+              persistSession({ user: me });
+            } else {
+              clearSessionStorage();
+              setUser(null);
+            }
+          }
+        } else if (!cancelled) {
+          clearSessionStorage();
+          setUser(null);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -41,155 +73,42 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (usernameOrEmail, password, options = {}) => {
     try {
-      const { intendedRole } = options;
-      const body = { usernameOrEmail, password };
-      if (intendedRole) {
-        body.intendedRole = intendedRole;
-      }
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      let data = {};
-      try {
-        data = await res.json();
-      } catch {
-        // non-JSON error body
-      }
-
-      if (!res.ok) {
-        const msg =
-          data.error ||
-          (res.status === 401
-            ? 'Invalid username/email or password'
-            : 'Login failed');
-        return {
-          success: false,
-          error: msg,
-          locked: data.locked === true || res.status === 429,
-          lockoutSeconds: typeof data.lockoutSeconds === 'number' ? data.lockoutSeconds : undefined,
-          code: data.code,
-        };
-      }
-
-      if (!data.ok) {
-        return {
-          success: false,
-          error: data.error || data.message || 'Invalid username/email or password',
-        };
-      }
-
-      setUser(data.user);
-      persistSession({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user,
-      });
-      return { success: true, user: data.user };
+      const result = await apiLogin(usernameOrEmail, password, options);
+      if (!result.success) return result;
+      setUser(result.user);
+      return result;
     } catch (err) {
       const msg = err.message || 'Network error';
       const friendly =
-        msg === 'Failed to fetch' || msg.includes('NetworkError')
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:5000'
-          : msg;
+        msg === 'Failed to fetch' || msg.includes('NetworkError') ? unreachableBackendHint() : msg;
       return { success: false, error: friendly };
     }
   };
 
   const signup = async (userData) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          phoneNumber: userData.phoneNumber,
-          nationalId: userData.nationalId,
-          username: userData.username,
-          email: userData.gmail,
-          password: userData.password,
-          role: userData.role || 'user',
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!data.ok) {
-        return { success: false, error: data.error || data.message || 'Signup failed' };
-      }
-
-      return { success: true, user: data.user };
+      const result = await apiSignup(userData);
+      if (!result.success) return result;
+      // Signup does not issue tokens — user must log in before protected routes.
+      return result;
     } catch (err) {
-      const msg = err.message || 'Network error';
-      const friendly =
-        msg === 'Failed to fetch' || msg.includes('NetworkError')
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:5000'
-          : msg;
-      return { success: false, error: friendly };
+      return { success: false, error: err.message || 'Network error' };
     }
   };
 
   const loginWithGoogle = async (credential, options = {}) => {
     try {
-      const { intendedRole } = options;
-      const body = { accessToken: credential };
-      if (intendedRole) {
-        body.intendedRole = intendedRole;
-      }
-      const res = await fetch(`${API_BASE}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return {
-          success: false,
-          error: data.error || (res.status === 403 ? "Not authorized" : "Google sign-in failed"),
-          code: data.code,
-        };
-      }
-      if (!data.ok) {
-        return { success: false, error: data.error || data.message || 'Google sign-in failed' };
-      }
-      setUser(data.user);
-      persistSession({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user,
-      });
-      return { success: true, user: data.user };
+      const result = await apiLoginWithGoogle(credential, options);
+      if (!result.success) return result;
+      setUser(result.user);
+      return result;
     } catch (err) {
-      const msg = err.message || 'Network error';
-      const friendly =
-        msg === 'Failed to fetch' || msg.includes('NetworkError')
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:5000'
-          : msg;
-      return { success: false, error: friendly };
+      return { success: false, error: err.message || 'Network error' };
     }
   };
 
   const logout = async () => {
-    const refresh = getStoredRefreshToken();
-    if (refresh) {
-      const access = getStoredAccessToken();
-      try {
-        await parkgoFetch(`${API_BASE}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(access ? { Authorization: `Bearer ${access}` } : {}),
-          },
-          body: JSON.stringify({ refreshToken: refresh }),
-        });
-      } catch {
-        /* still clear local session */
-      }
-    }
-    clearSessionStorage();
+    await apiLogout();
     setUser(null);
   };
 

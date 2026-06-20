@@ -21,7 +21,6 @@ function normalizeStatus(st) {
   return String(st ?? '').trim().toLowerCase();
 }
 
-/** Pick newest reservation that counts as active and carries a usable QR. */
 async function qrFromReservationList(userId) {
   const r = await getUserReservations(userId);
   const list = Array.isArray(r) ? r : [];
@@ -38,6 +37,15 @@ async function qrFromReservationList(userId) {
   }
   const newest = active[0];
   return newest ? { qr: null, reservation: newest } : { qr: null, reservation: null };
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+      <Text style={{ color: Colors.muted, fontSize: 13.5 }}>{label}</Text>
+      <Text style={{ color: Colors.text, fontSize: 13.5, fontWeight: '600' }}>{value || '—'}</Text>
+    </View>
+  );
 }
 
 export function QrCodeScreen({ navigation }) {
@@ -97,60 +105,113 @@ export function QrCodeScreen({ navigation }) {
     setReservation(null);
   };
 
-  return (
-    <Screen>
-      <Card>
-        <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Your booking QR</Text>
-        <Text style={{ color: Colors.muted }}>
-          This QR is issued by ParkGo after you confirm a booking. Gate staff scan it against the server — it is not
-          fabricated in the app.
-        </Text>
-      </Card>
+  const statusColor =
+    normalizeStatus(reservation?.status) === 'confirmed'
+      ? Colors.success
+      : normalizeStatus(reservation?.status) === 'checked_in'
+        ? Colors.info
+        : Colors.muted;
 
+  return (
+    <Screen contentContainerStyle={{ paddingTop: Colors.space.xl, gap: Colors.space.lg }}>
       <Banner tone="danger" text={error} />
 
-      <Card style={{ alignItems: 'center' }}>
+      <Card style={{ alignItems: 'center', paddingVertical: 24 }}>
+        <Text style={{ color: Colors.text, fontSize: 20, fontWeight: '700', marginBottom: 4 }}>
+          Your Booking QR
+        </Text>
+        <Text style={{ color: Colors.muted, fontSize: 13.5, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
+          Hold this QR to the gate camera or gatekeeper scanner for check-in and check-out.
+        </Text>
+
         {loading ? (
-          <ActivityIndicator color={Colors.primary} />
+          <View style={{ paddingVertical: 40 }}>
+            <ActivityIndicator color={Colors.logoBlueLight} size="large" />
+          </View>
         ) : qr ? (
-          <>
-            <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16 }}>
-              <QRCode value={String(qr)} size={220} />
-            </View>
-            <Text style={{ color: Colors.muted, marginTop: 8 }} numberOfLines={2}>
-              {String(qr)}
-            </Text>
-          </>
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              borderRadius: Colors.radius.lg,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <QRCode value={String(qr)} size={220} />
+          </View>
         ) : (
-          <Text style={{ color: Colors.muted }}>No active booking QR found yet. Complete a booking, then tap Refresh.</Text>
+          <View
+            style={{
+              paddingVertical: 32,
+              paddingHorizontal: 24,
+              borderRadius: Colors.radius.md,
+              backgroundColor: 'rgba(148, 163, 184, 0.06)',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: Colors.muted, textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
+              No active booking QR found.{'\n'}Complete a booking, then tap Refresh.
+            </Text>
+          </View>
         )}
       </Card>
 
       {reservation ? (
         <Card>
-          <Text style={{ color: Colors.text, fontWeight: '900' }}>Booking details</Text>
-          <Text style={{ color: Colors.muted }}>ID: {reservation.id}</Text>
-          <Text style={{ color: Colors.muted }}>Slot: {reservation.slot_no ?? reservation.slotNo}</Text>
-          <Text style={{ color: Colors.muted }}>Status: {reservation.status}</Text>
-          <Text style={{ color: Colors.muted }}>
-            Start:{' '}
-            {reservation.start_time || reservation.startTime
-              ? new Date(reservation.start_time || reservation.startTime).toLocaleString()
-              : '-'}
-          </Text>
-          <Text style={{ color: Colors.muted }}>
-            End:{' '}
-            {reservation.end_time || reservation.endTime
-              ? new Date(reservation.end_time || reservation.endTime).toLocaleString()
-              : '-'}
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '700' }}>Booking Details</Text>
+            <View
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: Colors.radius.full,
+                borderWidth: 1,
+                borderColor: statusColor,
+              }}
+            >
+              <Text style={{ color: statusColor, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>
+                {normalizeStatus(reservation.status)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 8 }}>
+            <DetailRow label="Booking ID" value={`#${reservation.id}`} />
+            <DetailRow label="Bay" value={reservation.slot_no ?? reservation.slotNo} />
+            <DetailRow
+              label="Start"
+              value={
+                reservation.start_time || reservation.startTime
+                  ? new Date(reservation.start_time || reservation.startTime).toLocaleString()
+                  : null
+              }
+            />
+            <DetailRow
+              label="End"
+              value={
+                reservation.end_time || reservation.endTime
+                  ? new Date(reservation.end_time || reservation.endTime).toLocaleString()
+                  : null
+              }
+            />
+          </View>
         </Card>
       ) : null}
 
-      <Card>
-        <Button title="Refresh" onPress={load} disabled={loading} loading={loading} />
-        <Button title="Clear cached QR" onPress={clear} tone="warning" />
-      </Card>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Refresh" onPress={load} disabled={loading} loading={loading} tone="secondary" />
+        </View>
+        {qr ? (
+          <View style={{ flex: 1 }}>
+            <Button title="Clear QR" onPress={clear} tone="warning" size="md" />
+          </View>
+        ) : null}
+      </View>
     </Screen>
   );
 }

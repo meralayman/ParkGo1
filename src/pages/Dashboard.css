@@ -6,10 +6,11 @@
 }
 
 .dashboard-header {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(99, 102, 241, 0.08) 100%);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(99, 102, 241, 0.06) 50%, rgba(20, 184, 166, 0.04) 100%);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -67,32 +68,38 @@
 
 .admin-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+  padding: 4px;
+  background: rgba(148, 163, 184, 0.06);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
 }
 
 .admin-tab {
-  padding: 10px 20px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  border-radius: 8px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   transition: all 0.2s ease;
+  letter-spacing: 0.01em;
 }
 
 .admin-tab:hover {
   background: var(--nav-link-hover-bg);
-  border-color: var(--logo-blue);
+  color: var(--text-primary);
 }
 
 .admin-tab.active {
   background: linear-gradient(135deg, var(--logo-blue), var(--accent-purple));
   color: white;
   border-color: transparent;
+  box-shadow: 0 2px 8px var(--glow-blue);
 }
 
 .slot-state-select {
@@ -240,28 +247,35 @@
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 25px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stat-card:hover {
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card h3 {
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
   color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .stat-value {
   margin: 0;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   background: linear-gradient(135deg, var(--logo-blue), var(--accent-purple));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-variant-numeric: tabular-nums;
 }
 
 .table-container {
@@ -300,8 +314,16 @@
   font-size: 14px;
 }
 
+.data-table tbody tr:nth-child(even) {
+  background: rgba(148, 163, 184, 0.03);
+}
+
 .data-table tbody tr:hover {
   background: var(--nav-link-hover-bg);
+}
+
+.data-table tbody tr {
+  transition: background-color var(--transition-fast);
 }
 
 .admin-security-log-action {
@@ -608,9 +630,12 @@
 
 .empty-state {
   text-align: center;
-  padding: 40px;
+  padding: 2.5rem 1.5rem;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.04);
 }
 
 .modal-overlay {
@@ -741,6 +766,34 @@
 .report-incident-page .modal-content {
   max-width: 640px;
   margin: 0 auto;
+}
+
+.report-incident-page .dashboard-header h1 {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+}
+
+/* File input styling */
+.modal-content .form-group input[type="file"] {
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.modal-content .form-group input[type="file"]::file-selector-button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 10px;
+  transition: background 0.15s;
+}
+
+.modal-content .form-group input[type="file"]::file-selector-button:hover {
+  background: var(--nav-link-hover-bg);
 }
 
 .modal-content .form-row {
@@ -969,12 +1022,13 @@
 /* Gatekeeper: camera QR scanner */
 .gatekeeper-hint {
   color: var(--text-muted);
-  margin: 0 0 16px 0;
-  font-size: 14px;
+  margin: 0 0 1.25rem 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
 }
 
 .gatekeeper-scanner-actions {
-  margin-bottom: 16px;
+  margin-bottom: 1.25rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -982,61 +1036,82 @@
 }
 
 .gatekeeper-camera-error {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
   margin-bottom: 12px;
   font-size: 14px;
   border: 1px solid rgba(239, 68, 68, 0.3);
+  line-height: 1.45;
 }
 
 .gatekeeper-qr-reader {
-  max-width: 400px;
-  min-height: 240px;
-  margin: 0 auto 16px auto;
-  border-radius: 12px;
+  max-width: 420px;
+  min-height: 260px;
+  margin: 0 auto 20px auto;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(96, 165, 250, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .gatekeeper-qr-reader video {
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .gatekeeper-status {
-  margin: 12px 0;
-  font-size: 15px;
-  font-weight: 500;
+  margin: 14px 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
   color: var(--text-primary);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(37, 99, 235, 0.08);
+  border-left: 3px solid var(--logo-blue);
 }
 
 .gatekeeper-reservation-card {
-  margin-top: 16px;
-  padding: 20px;
+  margin-top: 20px;
+  padding: 1.25rem 1.5rem;
   background: var(--bg-elevated);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .gatekeeper-reservation-card h3 {
-  margin: 0 0 12px 0;
-  font-size: 18px;
+  margin: 0 0 14px 0;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--text-primary);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .gatekeeper-reservation-card p {
-  margin: 6px 0;
+  margin: 8px 0;
   font-size: 14px;
   color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gatekeeper-reservation-card p b {
+  color: var(--text-muted);
+  font-weight: 500;
+  min-width: 80px;
 }
 
 .gatekeeper-reservation-actions {
   display: flex;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
   flex-wrap: wrap;
 }
 
@@ -1048,13 +1123,16 @@
 }
 
 .gatekeeper-token-input {
-  padding: 10px 14px;
+  padding: 12px 16px;
   min-width: 280px;
-  border-radius: 8px;
+  flex: 1;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  font-size: 14px;
+  font-size: 15px;
   background: var(--bg-elevated);
   color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .gatekeeper-token-input:focus {

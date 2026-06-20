@@ -1,29 +1,9 @@
 /**
- * API origin for fetch calls.
- * - Set REACT_APP_API_BASE_URL in .env for production or custom backends (no trailing slash).
- * - In development, defaults to http://127.0.0.1:5000 so requests hit Express directly.
- *   (CRA's package.json "proxy" does not reliably forward multipart POST / FormData; that produced
- *   "Cannot POST /incidents" from the dev server. Backend uses cors() so the browser is allowed.)
+ * Legacy helpers — canonical API origin is `apiOrigin.js` (used by `src/api/client.js`).
  */
-function getApiBase() {
-  const v = process.env.REACT_APP_API_BASE_URL;
-  if (v != null && String(v).trim() !== '') {
-    let u = String(v).replace(/\/$/, '');
-    // Misconfiguration: pointing the API at the CRA dev server causes "Cannot POST /incidents" (HTML error).
-    if (process.env.NODE_ENV === 'development' && /:(3000|3001)(\/|$)/.test(u)) {
-      u = 'http://127.0.0.1:5000';
-    }
-    // Demand ML (Flask) runs on 5001; browser calls must hit Express (5000) for /api/* routes (e.g. /api/forecast).
-    // Pointing REACT_APP_API_BASE_URL at :5001 causes GET /api/forecast → 404 on Flask.
-    if (/:(5001)(\/|$)/.test(u)) {
-      u = u.replace(/:5001(?=\/|$)/, ':5000');
-    }
-    return u;
-  }
-  return 'http://127.0.0.1:5000';
-}
+import { API_BASE, unreachableBackendHint } from './apiOrigin';
 
-export const API_BASE = getApiBase();
+export { API_BASE };
 
 /** For requests that need `Authorization: Bearer`, use `fetchWithAuth` from `../utils/authFetch` (reads `localStorage.accessToken`). */
 
@@ -115,10 +95,7 @@ export function apiUrl(path) {
 
 /** User-facing hint when fetch fails (connection refused, DNS, etc.) */
 export function apiUnreachableMessage() {
-  if (API_BASE) {
-    return `Cannot reach the API at ${API_BASE}. Start the backend or fix REACT_APP_API_BASE_URL.`;
-  }
-  return 'Cannot reach the API at http://127.0.0.1:5000. Start the backend (node server.js in /backend).';
+  return unreachableBackendHint();
 }
 
 /** Shown when API_BASE is empty in .env but we need to mention where the server should be */

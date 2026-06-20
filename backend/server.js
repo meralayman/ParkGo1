@@ -7,7 +7,7 @@ const multer = require("multer");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
-const { requireAdmin } = require("./middleware/auth");
+const { requireAdmin, requireCustomer, requireGatekeeper } = require("./middleware/auth");
 const { bookingRateLimiter, qrRateLimiter } = require("./middleware/rateLimits");
 const {
   buildBookingQrJwtForRow,
@@ -33,10 +33,24 @@ const {
 } = require("./parkingPricing");
 
 const app = express();
-if (process.env.TRUST_PROXY === "1") {
+if (process.env.TRUST_PROXY === "1" || process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
-app.use(cors());
+
+const corsOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin:
+      process.env.NODE_ENV === "production" && corsOrigins.length > 0
+        ? corsOrigins
+        : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const incidentUploadDir = path.join(__dirname, "uploads", "incidents");
@@ -293,11 +307,13 @@ function parseUserId(raw) {
   return UUID_RE.test(s) ? s : null;
 }
 
-/** Booking id — must match reservations.id (UUID in current schema). */
+/** Booking id — must match reservations.id (UUID or SERIAL, depending on DB). */
 function parseReservationId(raw) {
   const s = String(raw ?? "").trim().replace(/^\{|\}$/g, "");
   if (!s) return null;
-  return UUID_RE.test(s) ? s : null;
+  if (UUID_RE.test(s)) return s;
+  if (/^\d+$/.test(s)) return s;
+  return null;
 }
 
 /** Mark missed check-ins as cancelled and free slots (call inside a transaction). */
@@ -407,6 +423,14 @@ registerAuthRoutes(app, { pool, apiError, logAudit });
 const { registerChatbotRoutes } = require("./routes/chatbot.routes");
 registerChatbotRoutes(app, { pool, apiError, logAudit });
 
+const { registerChatRoutes } = require("./routes/chat.routes");
+registerChatRoutes(app, { pool, apiError, logAudit });
+
+const { registerGateDeviceRoutes } = require("./routes/gateDevice.routes");
+registerGateDeviceRoutes(app, { pool, apiError, logAudit });
+
+const { ensureChatMessagesTable } = require("./services/chatMessages.schema");
+
 /* -------------------- ROOT -------------------- */
 app.get("/", (req, res) => {
   res.json({
@@ -461,19 +485,54 @@ app.get("/health", async (req, res) => {
   }
 });
 
+/** Map information_schema data_type to a PostgreSQL column type for FK columns. */
+function sqlTypeForPgId(dataType) {
+  if (dataType === "uuid") return "UUID";
+  if (dataType === "integer" || dataType === "bigint" || dataType === "smallint") return "INTEGER";
+  return null;
+}
+
+async function readPublicColumnType(tableName, columnName) {
+  const r = await pool.query(
+    `
+      SELECT data_type
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    `,
+    [tableName, columnName]
+  );
+  return r.rows[0]?.data_type ?? null;
+}
+
 async function ensureIncidentReportsTable() {
+  const usersIdType = await readPublicColumnType("users", "id");
+  const reservationsIdType = await readPublicColumnType("reservations", "id");
+  const userIdSql = sqlTypeForPgId(usersIdType);
+  const reservationIdSql = sqlTypeForPgId(reservationsIdType);
+  if (!userIdSql || !reservationIdSql) {
+    console.warn(
+      "[ParkGo] incident_reports ensure skipped: users.id or reservations.id not found (run init-db.sql first)."
+    );
+    return;
+  }
+
   try {
     const r = await pool.query(`
       SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'incident_reports'
-        AND column_name IN ('user_id', 'reservation_id')
+        AND column_name IN ('user_id', 'gatekeeper_id', 'reservation_id')
     `);
     const types = Object.fromEntries(r.rows.map((row) => [row.column_name, row.data_type]));
-    const badUser = types.user_id === 'integer';
-    const badRes = types.reservation_id === 'integer';
-    if (badUser || badRes) {
+    const expectedUser = usersIdType;
+    const expectedRes = reservationsIdType;
+    const badUser = types.user_id && types.user_id !== expectedUser;
+    const badGk = types.gatekeeper_id && types.gatekeeper_id !== expectedUser;
+    const badRes = types.reservation_id && types.reservation_id !== expectedRes;
+    if (badUser || badGk || badRes) {
       await pool.query(`DROP TABLE IF EXISTS incident_reports CASCADE`);
     }
   } catch (e) {
@@ -485,9 +544,9 @@ async function ensureIncidentReportsTable() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS incident_reports (
         id SERIAL PRIMARY KEY,
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        gatekeeper_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        reservation_id UUID REFERENCES reservations(id),
+        user_id ${userIdSql} REFERENCES users(id) ON DELETE SET NULL,
+        gatekeeper_id ${userIdSql} REFERENCES users(id) ON DELETE SET NULL,
+        reservation_id ${reservationIdSql} REFERENCES reservations(id),
         full_name VARCHAR(255) NOT NULL,
         mobile VARCHAR(50),
         email VARCHAR(255),
@@ -498,10 +557,10 @@ async function ensureIncidentReportsTable() {
       );
     `);
     await pool.query(`
-      ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS reservation_id UUID REFERENCES reservations(id);
+      ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS reservation_id ${reservationIdSql} REFERENCES reservations(id);
     `);
     await pool.query(`
-      ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS gatekeeper_id UUID REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS gatekeeper_id ${userIdSql} REFERENCES users(id) ON DELETE SET NULL;
     `);
     await pool.query(`ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS email VARCHAR(255);`);
     await pool.query(`ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS reporter_type VARCHAR(20) DEFAULT 'user';`);
@@ -595,7 +654,7 @@ async function assertRequestingUserIsAdmin(userId) {
 /**
  * User-submitted incident reports (multipart: fullName, mobile, reservationId, description, optional photo, optional userId).
  */
-app.post("/incidents", (req, res, next) => {
+app.post("/incidents", requireCustomer, (req, res, next) => {
   uploadIncidentPhoto.single("photo")(req, res, (err) => {
     if (!err) return next();
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -607,12 +666,11 @@ app.post("/incidents", (req, res, next) => {
   try {
     await ensureIncidentReportsTable();
 
+    const userId = req.authUserId;
     const fullName = String(req.body.fullName || "").trim();
     const mobile = String(req.body.mobile || "").trim();
     const description = String(req.body.description || "").trim();
     const rawReservationId = String(req.body.reservationId || "").trim();
-    const rawUserId = req.body.userId;
-    const userId = parseUserId(rawUserId);
 
     if (!fullName || !mobile || !description) {
       return res.status(400).json({
@@ -629,22 +687,7 @@ app.post("/incidents", (req, res, next) => {
     if (reservationId === null) {
       return res.status(400).json({
         ok: false,
-        error: "Reservation ID must be your booking UUID (same as on your dashboard or QR).",
-      });
-    }
-
-    if (userId === null) {
-      return res.status(400).json({
-        ok: false,
-        error: "Please log in again, then submit your report.",
-      });
-    }
-
-    const uCheck = await pool.query("SELECT id FROM users WHERE id = $1", [userId]);
-    if (uCheck.rowCount === 0) {
-      return res.status(400).json({
-        ok: false,
-        error: "Your session is out of date. Please log out and log in again, then try submitting.",
+        error: "Reservation ID must match your booking ID (same as on your dashboard or QR).",
       });
     }
 
@@ -656,7 +699,7 @@ app.post("/incidents", (req, res, next) => {
       });
     }
     const bookingOwnerId = resCheck.rows[0].user_id;
-    if (userId !== null && String(bookingOwnerId) !== String(userId)) {
+    if (String(bookingOwnerId) !== String(userId)) {
       return res.status(403).json({
         ok: false,
         error: "This reservation does not belong to your account. Use the booking ID from your own reservation list.",
@@ -678,9 +721,10 @@ app.post("/incidents", (req, res, next) => {
 });
 
 /**
- * Gatekeeper-submitted incident reports (multipart: fullName, email, description, optional photo, gatekeeperUserId).
+ * Gatekeeper-submitted incident reports (multipart: fullName, email, description, optional photo).
+ * gatekeeperUserId is now taken from the JWT (req.authUserId), not the request body.
  */
-app.post("/incidents/gatekeeper", (req, res, next) => {
+app.post("/incidents/gatekeeper", requireGatekeeper, (req, res, next) => {
   uploadIncidentPhoto.single("photo")(req, res, (err) => {
     if (!err) return next();
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -692,10 +736,10 @@ app.post("/incidents/gatekeeper", (req, res, next) => {
   try {
     await ensureIncidentReportsTable();
 
+    const gatekeeperId = req.authUserId;
     const fullName = String(req.body.fullName || "").trim();
     const email = String(req.body.email || "").trim();
     const description = String(req.body.description || "").trim();
-    const gatekeeperId = parseUserId(req.body.gatekeeperUserId);
 
     if (!fullName || !email || !description) {
       return res.status(400).json({
@@ -707,19 +751,6 @@ app.post("/incidents/gatekeeper", (req, res, next) => {
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!emailOk) {
       return res.status(400).json({ ok: false, error: "Please enter a valid email address." });
-    }
-
-    if (gatekeeperId === null) {
-      return res.status(400).json({ ok: false, error: "Gatekeeper session is required." });
-    }
-
-    const gk = await pool.query("SELECT id, role FROM users WHERE id = $1", [gatekeeperId]);
-    if (gk.rowCount === 0) {
-      return res.status(403).json({ ok: false, error: "Only gatekeeper accounts can submit this form." });
-    }
-    const role = String(gk.rows[0].role || "").toLowerCase();
-    if (role !== "gatekeeper") {
-      return res.status(403).json({ ok: false, error: "Only gatekeeper accounts can submit this form." });
     }
 
     const photoFilename = req.file ? req.file.filename : null;
@@ -736,193 +767,13 @@ app.post("/incidents/gatekeeper", (req, res, next) => {
   }
 });
 
-/* -------------------- AUTH -------------------- */
-app.post("/auth/signup", async (req, res) => {
-  try {
-    const {
-      firstName,
-      lastName,
-      phoneNumber,
-      nationalId,
-      username,
-      email,
-      password,
-      role,
-    } = req.body;
-
-    if (!firstName || !lastName || !username || !email || !password) {
-      return res.status(400).json({ ok: false, error: "Missing required fields" });
-    }
-
-    const userRole = (role || "user").toLowerCase();
-    if (userRole === "admin") {
-      return res.status(400).json({ ok: false, error: "Admin accounts cannot be created via signup" });
-    }
-    if (!["user", "gatekeeper"].includes(userRole)) {
-      return res.status(400).json({ ok: false, error: "Invalid role. Choose User or Gatekeeper." });
-    }
-
-    const exists = await pool.query(
-      "SELECT 1 FROM users WHERE email=$1 OR username=$2",
-      [email, username]
-    );
-    if (exists.rowCount > 0) {
-      return res.status(409).json({ ok: false, error: "Email or username already exists" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const insert = await pool.query(
-      `INSERT INTO users (first_name, last_name, phone_number, national_id, username, email, password_hash, role)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       RETURNING id, first_name, last_name, username, email, role, created_at`,
-      [firstName, lastName, phoneNumber || null, nationalId || null, username, email, passwordHash, userRole]
-    );
-
-    res.json({ ok: true, user: insert.rows[0] });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: apiError(err) });
-  }
-});
-
-app.post("/auth/login", async (req, res) => {
-  try {
-    const { email, usernameOrEmail, password, intendedRole: rawIntended } = req.body;
-    const wantAdmin = String(rawIntended || "").toLowerCase() === "admin";
-    const identifier = usernameOrEmail || email;
-    if (!identifier || !password) {
-      return res.status(400).json({ ok: false, error: "Username/email and password are required" });
-    }
-
-    const key = normalizeLoginKey(identifier);
-    if (isPasswordLoginLocked(key)) {
-      return res.status(429).json({
-        ok: false,
-        locked: true,
-        error: "Too many failed login attempts. Try again in 5 minutes.",
-        lockoutSeconds: lockoutSecondsRemainingForKey(key),
-      });
-    }
-
-    const r = await pool.query(
-      "SELECT id, first_name, last_name, username, email, phone_number, role, password_hash FROM users WHERE email=$1 OR username=$1",
-      [identifier]
-    );
-
-    if (r.rowCount === 0) {
-      const st = recordFailedPasswordLogin(key);
-      if (st.lockedUntil && Date.now() < st.lockedUntil) {
-        return res.status(429).json({
-          ok: false,
-          locked: true,
-          error:
-            "Too many failed login attempts. Your account is temporarily locked. Try again in 5 minutes.",
-          lockoutSeconds: lockoutSecondsRemainingForKey(key),
-        });
-      }
-      return res.status(401).json({ ok: false, error: "Invalid credentials" });
-    }
-
-    const user = r.rows[0];
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      const st = recordFailedPasswordLogin(key);
-      if (st.lockedUntil && Date.now() < st.lockedUntil) {
-        return res.status(429).json({
-          ok: false,
-          locked: true,
-          error:
-            "Too many failed login attempts. Your account is temporarily locked. Try again in 5 minutes.",
-          lockoutSeconds: lockoutSecondsRemainingForKey(key),
-        });
-      }
-      return res.status(401).json({ ok: false, error: "Invalid credentials" });
-    }
-
-    clearPasswordLoginState(key);
-    delete user.password_hash;
-    if (wantAdmin && user.role !== "admin") {
-      await recordNonAdminAdminLoginAttempt(req, user);
-      return res.status(403).json({
-        ok: false,
-        code: "NOT_ADMIN",
-        error:
-          "This account is not an administrator. If you are a user or gatekeeper, use the standard login (not the admin sign-in).",
-      });
-    }
-    res.json({ ok: true, user });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: apiError(err) });
-  }
-});
-
-app.post("/auth/google", async (req, res) => {
-  try {
-    const { accessToken, intendedRole: rawIntended } = req.body;
-    const wantAdmin = String(rawIntended || "").toLowerCase() === "admin";
-    if (!accessToken) {
-      return res.status(400).json({ ok: false, error: "Google access token is required" });
-    }
-    const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const tokenData = await userInfoRes.json();
-    if (tokenData.error) {
-      return res.status(401).json({ ok: false, error: "Invalid Google credential" });
-    }
-    const { email, given_name, family_name } = tokenData;
-    let r = await pool.query(
-      "SELECT id, first_name, last_name, username, email, role FROM users WHERE email=$1",
-      [email]
-    );
-    if (r.rowCount > 0) {
-      const user = r.rows[0];
-      if (wantAdmin && user.role !== "admin") {
-        await recordNonAdminAdminLoginAttempt(req, user);
-        return res.status(403).json({
-          ok: false,
-          code: "NOT_ADMIN",
-          error:
-            "This account is not an administrator. If you are a user or gatekeeper, use the standard login (not the admin sign-in).",
-        });
-      }
-      return res.json({ ok: true, user });
-    }
-    if (wantAdmin) {
-      const baseU = (email.split("@")[0] || "user").replace(/\W/g, "").slice(0, 20);
-      await recordNonAdminAdminLoginAttempt(req, {
-        id: null,
-        username: baseU,
-        email,
-        role: "unregistered",
-      });
-      return res.status(403).json({
-        ok: false,
-        code: "NOT_ADMIN",
-        error:
-          "This account is not an administrator. If you are a user or gatekeeper, use the standard login (not the admin sign-in).",
-      });
-    }
-    const baseUsername = (email.split("@")[0] || "user").replace(/\W/g, "").slice(0, 20);
-    let username = baseUsername;
-    let suffix = 0;
-    while (true) {
-      const exists = await pool.query("SELECT 1 FROM users WHERE username=$1", [username]);
-      if (exists.rowCount === 0) break;
-      username = `${baseUsername}${++suffix}`;
-    }
-    const passwordHash = await bcrypt.hash(require("crypto").randomBytes(32).toString("hex"), 10);
-    const insert = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role)
-       VALUES ($1,$2,$3,$4,$5,'user')
-       RETURNING id, first_name, last_name, username, email, role`,
-      [given_name || "User", family_name || "", username, email, passwordHash]
-    );
-    return res.json({ ok: true, user: insert.rows[0] });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: apiError(err) });
-  }
-});
+/* -------------------- AUTH --------------------
+ * All auth routes (signup, login, google, refresh, logout, me) are registered
+ * by registerAuthRoutes() above via backend/routes/authRoutes.js →
+ * backend/controllers/authController.js.  The inline duplicates that were here
+ * have been removed — they were shadowed (never reached) and did not issue
+ * JWT tokens, which would have broken client auth if route order ever changed.
+ */
 
 /* -------------------- SLOTS (parking_slots) -------------------- */
 app.get("/slots", async (req, res) => {
@@ -946,13 +797,14 @@ app.get("/slots", async (req, res) => {
  * - else: first available slot (state = 0)
  * - insert into reservations, set slot state to 2 (reserved)
  */
-app.post("/reservations", bookingRateLimiter, async (req, res) => {
+app.post("/reservations", requireCustomer, bookingRateLimiter, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { userId, startTime, endTime, paymentMethod, slotNo: bodySlotNo, slot_no } = req.body;
+    const userId = req.authUserId;
+    const { startTime, endTime, paymentMethod, slotNo: bodySlotNo, slot_no } = req.body;
     const requestedSlot = (bodySlotNo || slot_no || "").toString().trim();
 
-    if (!userId || !startTime || !endTime) {
+    if (!startTime || !endTime) {
       return res.status(400).json({ ok: false, error: "Missing required fields" });
     }
 
@@ -1066,9 +918,12 @@ app.post("/reservations", bookingRateLimiter, async (req, res) => {
   }
 });
 
-app.get("/reservations/user/:userId", async (req, res) => {
+app.get("/reservations/user/:userId", requireCustomer, async (req, res) => {
   try {
     const { userId } = req.params;
+    if (String(userId) !== String(req.authUserId)) {
+      return res.status(403).json({ ok: false, error: "You can only view your own bookings." });
+    }
 
     await runSweepNoShows();
 
@@ -1108,12 +963,8 @@ app.get("/admin/users", requireAdmin, async (req, res) => {
   }
 });
 
-app.get("/admin/security-alerts", async (req, res) => {
+app.get("/admin/security-alerts", requireAdmin, async (req, res) => {
   try {
-    const admin = await assertRequestingUserIsAdmin(req.query.userId);
-    if (!admin) {
-      return res.status(403).json({ ok: false, error: "Admin access only" });
-    }
     const afterId = Math.max(0, parseInt(String(req.query.afterId || "0"), 10) || 0);
     await ensureSecurityAlertsTable();
     const r = await pool.query(
@@ -1507,16 +1358,20 @@ app.patch("/admin/slots/:slotNo", requireAdmin, async (req, res) => {
  * - set reservation status = cancelled
  * - free the slot back to empty (0)
  */
-app.patch("/reservations/:id/cancel", async (req, res) => {
+app.patch("/reservations/:id/cancel", requireCustomer, async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
+    const reservationId = parseReservationId(id);
+    if (!reservationId) {
+      return res.status(400).json({ ok: false, error: "Invalid booking ID.", code: "INVALID_ID" });
+    }
 
     await client.query("BEGIN");
 
     const r = await client.query(
-      "SELECT id, slot_no, status FROM reservations WHERE id = $1 FOR UPDATE",
-      [id]
+      "SELECT id, user_id, slot_no, status FROM reservations WHERE id = $1 FOR UPDATE",
+      [reservationId]
     );
 
     if (r.rowCount === 0) {
@@ -1525,6 +1380,11 @@ app.patch("/reservations/:id/cancel", async (req, res) => {
     }
 
     const row = r.rows[0];
+
+    if (String(row.user_id) !== String(req.authUserId)) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ ok: false, error: "You can only cancel your own bookings." });
+    }
 
     if (row.status !== "confirmed") {
       await client.query("ROLLBACK");
@@ -1535,8 +1395,8 @@ app.patch("/reservations/:id/cancel", async (req, res) => {
     }
 
     await client.query(
-      "UPDATE reservations SET status = 'cancelled' WHERE id = $1",
-      [id]
+      "UPDATE reservations SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1",
+      [reservationId]
     );
 
     await client.query(
@@ -1560,14 +1420,10 @@ app.patch("/reservations/:id/cancel", async (req, res) => {
  * Overstay: scheduled end_time has passed but reservation is still active.
  * Option 1 — extend by 1 hour and add hourly rate to total_amount.
  */
-app.post("/reservations/:id/overstay-extend", async (req, res) => {
+app.post("/reservations/:id/overstay-extend", requireCustomer, async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ ok: false, error: "userId is required" });
-    }
 
     await client.query("BEGIN");
 
@@ -1583,9 +1439,9 @@ app.post("/reservations/:id/overstay-extend", async (req, res) => {
     }
 
     const row = r.rows[0];
-    if (Number(row.user_id) !== Number(userId)) {
+    if (String(row.user_id) !== String(req.authUserId)) {
       await client.query("ROLLBACK");
-      return res.status(403).json({ ok: false, error: "Forbidden" });
+      return res.status(403).json({ ok: false, error: "You can only extend your own bookings." });
     }
     if (!["confirmed", "checked_in"].includes(row.status)) {
       await client.query("ROLLBACK");
@@ -1739,9 +1595,9 @@ app.post("/gate/qr/preview", qrRateLimiter, async (req, res) => {
 });
 
 /** Preview booking by numeric id (legacy manual entry) or scan of old QRs. */
-app.get("/gate/booking/:bookingId", async (req, res) => {
-  const bookingId = parseInt(req.params.bookingId, 10);
-  if (Number.isNaN(bookingId)) {
+app.get("/gate/booking/:bookingId", requireGatekeeper, async (req, res) => {
+  const bookingId = parseReservationId(req.params.bookingId);
+  if (!bookingId) {
     return res.status(400).json({ ok: false, error: "Invalid booking ID" });
   }
 
@@ -1788,11 +1644,11 @@ app.get("/gate/booking/:bookingId", async (req, res) => {
 });
 
 /** Entry: confirmed → checked_in, record check-in time, slot occupied */
-app.post("/gate/check-in", async (req, res) => {
+app.post("/gate/check-in", requireGatekeeper, async (req, res) => {
   const client = await pool.connect();
   try {
-    const bookingId = parseInt(req.body.bookingId, 10);
-    if (Number.isNaN(bookingId)) {
+    const bookingId = parseReservationId(req.body.bookingId);
+    if (!bookingId) {
       return res.status(400).json({ ok: false, error: "bookingId is required" });
     }
 
@@ -1881,11 +1737,11 @@ app.post("/gate/check-in", async (req, res) => {
 });
 
 /** Exit: checked_in → closed, record check-out, price from duration + optional overstay */
-app.post("/gate/check-out", async (req, res) => {
+app.post("/gate/check-out", requireGatekeeper, async (req, res) => {
   const client = await pool.connect();
   try {
-    const bookingId = parseInt(req.body.bookingId, 10);
-    if (Number.isNaN(bookingId)) {
+    const bookingId = parseReservationId(req.body.bookingId);
+    if (!bookingId) {
       return res.status(400).json({ ok: false, error: "bookingId is required" });
     }
 
@@ -2040,10 +1896,12 @@ async function ensureGatekeeper() {
 }
 
 const PORT = process.env.PORT || 5000;
+/** Listen on all interfaces so phones on the same LAN can reach the API (set HOST=127.0.0.1 to restrict). */
+const HOST = process.env.HOST || "0.0.0.0";
 /** How often to cancel confirmed bookings that missed the check-in window (frees slots without waiting for HTTP traffic). */
 const MISSED_CHECKIN_SWEEP_MS = Number(process.env.MISSED_CHECKIN_SWEEP_MS) || 60_000;
 
-app.listen(PORT, async () => {
+app.listen(PORT, HOST, async () => {
   try {
     await ensureReservationsStatusConstraint();
   } catch (e) {
@@ -2074,6 +1932,11 @@ app.listen(PORT, async () => {
     await ensureDynamicHourlyRateColumn(pool);
   } catch (e) {
     console.error("[ParkGo] dynamic_hourly_rate column:", e?.message || e);
+  }
+  try {
+    await ensureChatMessagesTable(pool);
+  } catch (e) {
+    console.error("[ParkGo] chat_messages table:", e?.message || e);
   }
   try {
     await ensureLateFeeColumns(pool);

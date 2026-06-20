@@ -3,50 +3,65 @@
   right: 1.25rem;
   bottom: 1.25rem;
   z-index: 1040;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(145deg, #0d6efd, #0a58ca);
+  background: linear-gradient(135deg, var(--logo-blue), var(--accent-purple));
   color: #fff;
   font-size: 1.35rem;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(13, 110, 253, 0.45);
+  box-shadow: 0 4px 16px var(--glow-blue), 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .parkgo-chatbot-fab:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.55);
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px var(--glow-blue), 0 0 8px var(--glow-purple);
 }
 
-/* Isolate from App theme (.App uses light text on dark bg — chat panel must stay dark-on-light). */
+.parkgo-chatbot-fab:active {
+  transform: scale(0.96);
+}
+
 .parkgo-chatbot-panel {
   position: fixed;
   right: 1.25rem;
-  bottom: 5rem;
+  bottom: 5.5rem;
   z-index: 1040;
-  width: min(100vw - 2rem, 380px);
-  height: min(72vh, 520px);
+  width: min(100vw - 2rem, 400px);
+  height: min(75vh, 560px);
   background: #fff;
   color: #212529;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: chatPanelIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes chatPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .parkgo-chatbot-panel__head {
-  padding: 0.75rem 1rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-  font-weight: 600;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #1e40af, #4f46e5);
+  border-bottom: none;
+  font-weight: 700;
   font-size: 0.95rem;
-  color: #212529;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -54,21 +69,64 @@
 }
 
 .parkgo-chatbot-panel__head span {
-  color: #212529;
+  color: #ffffff;
 }
 
 .parkgo-chatbot-panel__close {
   border: none;
-  background: transparent;
-  font-size: 1.25rem;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 1.125rem;
   line-height: 1;
   cursor: pointer;
-  color: #495057;
-  padding: 0 0.25rem;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 0.45rem;
+  border-radius: 6px;
+  transition: background 0.15s;
 }
 
 .parkgo-chatbot-panel__close:hover {
-  color: #212529;
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.parkgo-chatbot-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fafbfc;
+}
+
+.parkgo-chatbot-messages-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.parkgo-chatbot-guest-banner {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  background: #fff8e6;
+  border-bottom: 1px solid #ffe69c;
+  color: #664d03;
+}
+
+.parkgo-chatbot-guest-banner a {
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+.parkgo-chatbot-hint {
+  flex-shrink: 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+  background: #e7f1ff;
+  border-bottom: 1px solid #b6d4fe;
+  color: #084298;
 }
 
 .parkgo-chatbot-quick-wrap {
@@ -79,8 +137,7 @@
 }
 
 .parkgo-chatbot-messages {
-  flex: 1;
-  overflow-y: auto;
+  min-height: min-content;
   padding: 0.75rem;
   background: #fafbfc;
   color: #212529;
@@ -89,30 +146,92 @@
   gap: 0.5rem;
 }
 
-.parkgo-chatbot-bubble {
+.parkgo-chatbot-bubble-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   max-width: 92%;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  line-height: 1.45;
+}
+
+.parkgo-chatbot-bubble-row--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.parkgo-chatbot-bubble-row--bot {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.parkgo-chatbot-time {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.parkgo-chatbot-bubble {
+  max-width: 100%;
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .parkgo-chatbot-bubble--user {
-  align-self: flex-end;
-  background: #0d6efd;
+  align-self: stretch;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
   color: #fff !important;
   border-bottom-right-radius: 4px;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.2);
 }
 
 .parkgo-chatbot-bubble--bot {
-  align-self: flex-start;
-  background: #fff;
-  color: #212529;
-  border: 1px solid #dee2e6;
+  align-self: stretch;
+  background: #f1f5f9;
+  color: #1e293b;
+  border: none;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.parkgo-chatbot-loading,
+.parkgo-chatbot-empty {
+  padding: 1.25rem;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.parkgo-chatbot-body .parkgo-chatbot-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.parkgo-chatbot-body .parkgo-chatbot-error {
+  margin: auto;
+  max-width: calc(100% - 1.5rem);
+}
+
+.parkgo-chatbot-error {
+  margin: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f5c2c7;
+  color: #842029;
+  font-size: 0.85rem;
+}
+
+.parkgo-chatbot-error button {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #842029;
+  background: #fff;
+  color: #842029;
+  cursor: pointer;
 }
 
 .parkgo-chatbot-typing {
@@ -144,26 +263,29 @@
 
 .parkgo-chatbot-quick button {
   font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.38rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid #ced4da;
+  border: 1px solid #e2e8f0;
   background: #fff;
   cursor: pointer;
-  color: #212529;
+  color: #334155;
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .parkgo-chatbot-quick button:hover:not(:disabled) {
-  border-color: #0d6efd;
-  color: #0d6efd;
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
 }
 
 .parkgo-chatbot-quick button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .parkgo-chatbot-inputrow {
-  padding: 0.65rem;
+  padding: 0.75rem;
   border-top: 1px solid #e9ecef;
   display: flex;
   gap: 0.5rem;
@@ -172,37 +294,46 @@
 
 .parkgo-chatbot-inputrow input {
   flex: 1;
-  border: 1px solid #ced4da;
-  border-radius: 8px;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.9rem;
-  color: #212529;
-  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #f8fafc;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .parkgo-chatbot-inputrow input::placeholder {
-  color: #6c757d;
+  color: #94a3b8;
   opacity: 1;
 }
 
 .parkgo-chatbot-inputrow input:focus {
   outline: none;
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+  background: #fff;
 }
 
 .parkgo-chatbot-inputrow button {
   border: none;
-  border-radius: 8px;
-  padding: 0.45rem 0.9rem;
-  background: #0d6efd;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
   color: #fff;
   font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.parkgo-chatbot-inputrow button:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .parkgo-chatbot-inputrow button:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 

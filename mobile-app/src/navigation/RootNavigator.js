@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../store/AuthContext';
@@ -34,7 +35,7 @@ export function RootNavigator() {
   if (!bootstrapped) return <FullscreenLoader />;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthed ? (
           <Stack.Screen name="Auth" component={AuthStack} />

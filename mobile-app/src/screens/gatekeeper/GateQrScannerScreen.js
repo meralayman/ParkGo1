@@ -112,14 +112,16 @@ export function GateQrScannerScreen({ navigation }) {
 
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, gap: 10 }}>
           <Banner tone="danger" text={error} />
-          <Card>
-            <Text style={{ color: Colors.text, fontWeight: '900' }}>Scan a ParkGo booking QR</Text>
-            <Text style={{ color: Colors.muted }}>
-              The app sends the scanned token to `POST /gate/qr/preview` and shows the validation result.
+          <Card style={{ backgroundColor: 'rgba(15, 23, 42, 0.92)' }}>
+            <Text style={{ color: Colors.text, fontWeight: '700', fontSize: 16 }}>
+              {scanned ? 'QR Scanned' : 'Point at a booking QR'}
+            </Text>
+            <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
+              Hold steady — the scan is automatic. The server validates the booking and shows check-in or check-out.
             </Text>
             <Button
-              title={scanned ? 'Scan again' : 'Ready'}
-              tone="warning"
+              title={scanned ? 'Scan again' : 'Ready — waiting for QR'}
+              tone={scanned ? 'warning' : 'secondary'}
               onPress={() => {
                 setScanned(false);
                 setError('');

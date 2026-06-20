@@ -78,6 +78,27 @@ Keep both running. Use the frontend URL for login/signup.
 
 ---
 
+## 4. Mobile app (Expo)
+
+The React Native app lives in **`mobile-app/`** — it is **not** the same as the web frontend at the repo root.
+
+```bash
+cd mobile-app
+npm install
+npx expo start -c
+```
+
+Or from the **project root** (do **not** run `npx expo start` here — that folder has no Expo SDK):
+
+```bash
+npm run mobile
+npm run mobile:clear
+```
+
+See **`mobile-app/README.md`** for emulator setup (`npm run open:android` from inside `mobile-app`).
+
+---
+
 ## Smart Parking Assistant (demand forecast)
 
 The dashboard calls **`/api/forecast`** on the **Node backend (port 5000)**. Express proxies to the **Flask** demand app (`app.py`, default **port 5001**).
@@ -99,7 +120,8 @@ The dashboard calls **`/api/forecast`** on the **Node backend (port 5000)**. Exp
   `psql -U postgres -d parkgo_db -f backend/scripts/init-db.sql`
 
 - **Backend can’t connect to DB**  
-  Check PostgreSQL is running and that `backend/.env` has the correct `DATABASE_URL` (user, password, database name).
+  Check PostgreSQL is running and that `backend/.env` has the c
+  orrect `DATABASE_URL` (user, password, database name).
 
 - **Frontend can’t reach API**  
   Ensure the backend is running on port 5000. The frontend is set to use `http://localhost:5000`.
@@ -144,3 +166,24 @@ Plan estimated bay counts from a **lot photo** (aerial / top-down works best).
 3. Open **http://localhost:3000/ai-planner** in the browser.
 
 See **`ai-planner/README.md`** for details. Results are **approximate** — not a replacement for professional survey.
+
+## Local vs production
+
+**On your PC (current setup):** use **http://localhost:3000** and **http://127.0.0.1:5000** — no Nginx, no Certbot. See **`deploy/SETUP-AUDIT.md`**.
+
+**API smoke test (backend running):**
+
+```bash
+cd backend
+node scripts/e2e-local-audit.js
+```
+
+Runs register/login, bookings, cancel, chat, and admin checks against `http://127.0.0.1:5000`.
+
+## Production deployment (HTTPS + real APIs)
+
+- Frontend API layer: `src/api/` (`authApi`, `bookingApi`, `chatApi`, `slotApi`, `adminApi`, `paymentApi`)
+- Set `REACT_APP_API_BASE_URL=https://your-domain.com` before `npm run build`
+- Nginx config: `deploy/nginx/parkgo.conf`
+- Full steps: **`deploy/DEPLOYMENT.md`**
+- **HTTPS not working yet?** Start with HTTP, then Certbot: **`deploy/ENABLE-HTTPS.md`**

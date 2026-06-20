@@ -6,6 +6,9 @@
 .auth-page-wrap .auth-container {
   min-height: calc(100vh - var(--navbar-height, 72px));
   padding: 1rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(37, 99, 235, 0.08) 0%, transparent 70%),
+    var(--bg-dark);
 }
 
 .auth-container {
@@ -29,7 +32,7 @@
 
 @media (min-width: 576px) {
   .auth-card {
-    padding: 2.25rem;
+    padding: 2.5rem;
     max-width: 480px;
   }
 }
@@ -141,11 +144,42 @@
   cursor: not-allowed;
 }
 
+.auth-card-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.auth-card-logo img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.auth-card-logo-fallback {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--logo-blue-light);
+  letter-spacing: -0.02em;
+}
+
 .auth-divider {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   color: var(--text-muted);
-  font-size: 14px;
-  margin: 16px 0 8px;
+  font-size: 0.8125rem;
+  margin: 1rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
 }
 
 .auth-button-google {
@@ -215,4 +249,29 @@
   min-height: 100vh;
   color: var(--text-primary);
   font-size: 18px;
+}
+
+/* Payment card specific */
+.payment-card {
+  text-align: center;
+}
+
+.payment-card h2 {
+  margin-bottom: 0.75rem;
+}
+
+.payment-card .auth-subtitle strong {
+  color: var(--logo-blue-light);
+  font-size: 1.25rem;
+}
+
+.payment-card .auth-subtitle {
+  margin-bottom: 1.25rem;
+}
+
+.payment-card code {
+  background: var(--bg-elevated);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
 }

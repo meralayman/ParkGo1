@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getStoredAccessToken } from '../utils/authFetch';
 import Navbar from '../components/Navbar';
 import './AuthPages.css';
 
 const SignupPage = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user && getStoredAccessToken()) {
+      navigate('/user', { replace: true });
+    }
+  }, [authLoading, user, navigate]);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -95,6 +102,18 @@ const SignupPage = () => {
       <Navbar showAuthLinks />
       <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-card-logo">
+          <img
+            src={`${process.env.PUBLIC_URL || ''}/parkgo-logo.png`}
+            alt="ParkGO"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              const fb = e.target.nextElementSibling;
+              if (fb) fb.style.display = 'block';
+            }}
+          />
+          <span className="auth-card-logo-fallback" style={{ display: 'none' }}>ParkGO</span>
+        </div>
         <h2>Create Account</h2>
         <p className="auth-subtitle">Sign up to get started with ParkGo</p>
 
@@ -209,8 +228,8 @@ const SignupPage = () => {
             </div>
           </div>
 
-          <button type="submit" className="auth-button" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Sign Up'}
+          <button type="submit" className="auth-button" disabled={loading || authLoading}>
+            {loading ? 'Creating account…' : 'Sign up'}
           </button>
         </form>
 

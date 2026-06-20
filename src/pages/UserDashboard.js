@@ -13,9 +13,15 @@ import { formatEgp } from '../utils/formatEgp';
 import './Dashboard.css';
 import { QRCodeCanvas } from "qrcode.react";
 
-import { API_BASE } from '../config/apiBase';
+import { fetchSlots as apiFetchSlots } from '../api/slotApi';
+import {
+  fetchUserReservations,
+  createReservation,
+  cancelReservation,
+  cancelAllActiveBookings,
+  extendOverstay,
+} from '../api/bookingApi';
 import { PARKGO_RESERVATIONS_CHANGED } from '../constants/parkgoEvents';
-import { fetchWithAuth } from '../utils/authFetch';
 import { fetchParkingDemandInsight } from '../utils/parkingDemandHint';
 import {
   CHECK_IN_DEADLINE_MINUTES,
@@ -41,6 +47,11 @@ const UserDashboard = () => {
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState('');
+  const [reservationsLoading, setReservationsLoading] = useState(true);
+  const [reservationsError, setReservationsError] = useState('');
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [cancelBusyId, setCancelBusyId] = useState(null);
+  const [cancelAllBusy, setCancelAllBusy] = useState(false);
 
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [showExitQRModal, setShowExitQRModal] = useState(false);
@@ -227,13 +238,11 @@ const UserDashboard = () => {
     setSlotsLoading(true);
     setSlotsError('');
     try {
-      const res = await fetch(`${API_BASE}/slots`);
-      const data = await res.json();
-
-      if (data.ok && Array.isArray(data.slots)) {
-        setSlots(data.slots);
+      const result = await apiFetchSlots();
+      if (result.ok) {
+        setSlots(result.slots);
       } else {
-        setSlotsError(data.error || 'Failed to load slots');
+        setSlotsError(result.error || 'Failed to load slots');
       }
     } catch (err) {
       setSlotsError(err.message || 'Cannot reach server');
@@ -269,14 +278,20 @@ const UserDashboard = () => {
     (reservation && (reservation.qrJwt || reservation.qr_jwt)) || String(reservation.id);
 
   const loadReservationsAndHistory = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setReservations([]);
+      setHistory([]);
+      setReservationsLoading(false);
+      return;
+    }
 
+    setReservationsLoading(true);
+    setReservationsError('');
     try {
-      const res = await fetchWithAuth(`${API_BASE}/reservations/user/${user.id}`);
-      const data = await res.json();
+      const result = await fetchUserReservations(user.id);
 
-      if (data.ok && Array.isArray(data.reservations)) {
-        const mapped = data.reservations.map(mapApiReservationToUI);
+      if (result.ok && Array.isArray(result.reservations)) {
+        const mapped = result.reservations.map(mapApiReservationToUI);
 
         const active = mapped.filter((r) => ['confirmed', 'checked_in'].includes(r.status));
         setReservations(active);
@@ -285,9 +300,13 @@ const UserDashboard = () => {
           .filter((r) => !['confirmed', 'checked_in'].includes(r.status))
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setHistory(hist);
+      } else {
+        setReservationsError(result.error || 'Failed to load bookings');
       }
     } catch (err) {
-      console.error('Failed to load reservations/history', err);
+      setReservationsError(err.message || 'Cannot reach server');
+    } finally {
+      setReservationsLoading(false);
     }
   };
 
@@ -334,23 +353,19 @@ const UserDashboard = () => {
       return;
     }
 
+    setBookingSubmitting(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/reservations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          totalAmount,
-          paymentMethod: 'cash',
-          slotNo: pendingSlotNo || undefined,
-        })
+      const result = await createReservation({
+        userId: user.id,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        totalAmount,
+        paymentMethod: 'cash',
+        slotNo: pendingSlotNo || undefined,
       });
 
-      const data = await res.json();
-      if (!data.ok) {
-        toast(data.error || 'Failed to create reservation', { variant: 'error' });
+      if (!result.ok) {
+        toast(result.error || 'Failed to create reservation', { variant: 'error' });
         return;
       }
 
@@ -367,12 +382,15 @@ const UserDashboard = () => {
         paymentMethod: 'cash'
       });
 
+      const reservation = result.data?.reservation || {};
       toast(
-        `Reservation created\nSlot: ${data.reservation.slot_no}\nBooking ID: ${data.reservation.id}\nShow your booking QR at the gate (ID ${data.reservation.id}).`,
+        `Reservation created\nSlot: ${reservation.slot_no}\nBooking ID: ${reservation.id}\nShow your booking QR at the gate (ID ${reservation.id}).`,
         { variant: 'success', duration: 9000 }
       );
     } catch (err) {
       toast(err.message || 'Cannot reach server', { variant: 'error' });
+    } finally {
+      setBookingSubmitting(false);
     }
   };
 
@@ -449,19 +467,14 @@ const UserDashboard = () => {
     if (!user?.id) return;
     setOverstayActionLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/reservations/${reservationId}/overstay-extend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        toast(data.error || 'Could not extend reservation', { variant: 'error' });
+      const result = await extendOverstay(reservationId);
+      if (!result.ok) {
+        toast(result.error || 'Could not extend reservation', { variant: 'error' });
         return;
       }
       await loadReservationsAndHistory();
       await loadSlots();
-      toast(data.message || 'Reservation extended by 1 hour.', { variant: 'success' });
+      toast(result.data?.message || 'Reservation extended by 1 hour.', { variant: 'success' });
     } catch (err) {
       toast(err.message || 'Cannot reach server', { variant: 'error' });
     } finally {
@@ -477,6 +490,53 @@ const UserDashboard = () => {
     return () => clearInterval(t);
   }, [user?.id]);
 
+  const displayName = useMemo(() => {
+    if (!user) return 'there';
+    const first = user.first_name || user.firstName || '';
+    const last = user.last_name || user.lastName || '';
+    const combined = `${first} ${last}`.trim();
+    return combined || user.username || 'there';
+  }, [user]);
+
+  const confirmedBookingsCount = useMemo(
+    () => reservations.filter((r) => r.status === 'confirmed').length,
+    [reservations]
+  );
+
+  const handleCancelAllActive = async () => {
+    if (confirmedBookingsCount === 0) {
+      toast('No confirmed bookings to cancel.', { variant: 'info' });
+      return;
+    }
+    const ok = await confirm({
+      title: 'Cancel all active bookings?',
+      message: `This will cancel ${confirmedBookingsCount} confirmed booking(s). Spots will be released for others.`,
+      confirmLabel: 'Yes, cancel all',
+      cancelLabel: 'Keep bookings',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setCancelAllBusy(true);
+    try {
+      const result = await cancelAllActiveBookings();
+      if (!result.ok) {
+        toast(result.error || 'Failed to cancel bookings', { variant: 'error' });
+        return;
+      }
+      await loadReservationsAndHistory();
+      await loadSlots();
+      const n = result.data?.cancelledCount ?? confirmedBookingsCount;
+      toast(n > 0 ? `Cancelled ${n} booking(s).` : 'No bookings were cancelled.', {
+        variant: 'success',
+      });
+    } catch (err) {
+      toast(err.message || 'Cannot reach server', { variant: 'error' });
+    } finally {
+      setCancelAllBusy(false);
+    }
+  };
+
   const handleCancelReservation = async (id) => {
     const ok = await confirm({
       title: 'Cancel reservation?',
@@ -487,12 +547,12 @@ const UserDashboard = () => {
     });
     if (!ok) return;
 
+    setCancelBusyId(id);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/reservations/${id}/cancel`, { method: 'PATCH' });
-      const data = await res.json();
+      const result = await cancelReservation(id);
 
-      if (!data.ok) {
-        toast(data.error || 'Failed to cancel reservation', { variant: 'error' });
+      if (!result.ok) {
+        toast(result.error || 'Failed to cancel reservation', { variant: 'error' });
         return;
       }
 
@@ -501,6 +561,8 @@ const UserDashboard = () => {
       toast('Reservation cancelled.', { variant: 'success' });
     } catch (err) {
       toast(err.message || 'Cannot reach server', { variant: 'error' });
+    } finally {
+      setCancelBusyId(null);
     }
   };
 
@@ -512,7 +574,7 @@ const UserDashboard = () => {
           <div className="user-dash-masthead-intro">
             <h1>User Dashboard</h1>
             <p>
-              Welcome back, Meral.
+              Welcome back, {displayName}.
               <br />
               Choose your parking spot to begin.
             </p>
@@ -763,14 +825,37 @@ const UserDashboard = () => {
           <div className="dashboard-section">
             <h2>Current bookings</h2>
             <p className="parking-overview-hint" style={{ marginBottom: '0.75rem' }}>
-              Parking QR codes are <strong>signed</strong> for security (your booking ID is shown below for reference). Show at entry (check-in) and exit (check-out).{' '}
+              Parking QR codes are <strong>signed</strong> for security (your booking ID is shown below for reference). Show at entry (check-in) and exit (check-out) — hold your phone to the <strong>automated gate camera</strong> or a gatekeeper scanner.{' '}
               After your scheduled start time, the gate must scan you in within{' '}
               <strong>{CHECK_IN_DEADLINE_MINUTES} minutes</strong> or the reservation is cancelled and the spot is
               released. You get a dashboard alert and banner in the last{' '}
               <strong>{CHECK_IN_WARNING_LEAD_MINUTES} minutes</strong> before that deadline.
             </p>
+            {confirmedBookingsCount > 1 && (
+              <div className="user-dash-cancel-all-row" style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-delete"
+                  onClick={handleCancelAllActive}
+                  disabled={cancelAllBusy || reservationsLoading}
+                >
+                  {cancelAllBusy
+                    ? 'Cancelling…'
+                    : `Cancel all confirmed bookings (${confirmedBookingsCount})`}
+                </button>
+              </div>
+            )}
             <div className="table-container">
-              {reservations.length === 0 ? (
+              {reservationsLoading ? (
+                <p className="empty-state">Loading bookings…</p>
+              ) : reservationsError ? (
+                <p className="empty-state slots-error" role="alert">
+                  {reservationsError}{' '}
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={loadReservationsAndHistory}>
+                    Retry
+                  </button>
+                </p>
+              ) : reservations.length === 0 ? (
                 <p className="empty-state">No current bookings</p>
               ) : (
                 <table className="data-table">
@@ -823,8 +908,9 @@ const UserDashboard = () => {
                             <button
                               onClick={() => handleCancelReservation(reservation.id)}
                               className="btn btn-sm btn-delete"
+                              disabled={cancelBusyId === reservation.id || cancelAllBusy}
                             >
-                              Cancel
+                              {cancelBusyId === reservation.id ? 'Cancelling…' : 'Cancel'}
                             </button>
                           ) : (
                             <span className="text-muted" style={{ fontSize: 12 }}>Checked in</span>
@@ -841,7 +927,11 @@ const UserDashboard = () => {
           <div className="dashboard-section">
             <h2>Reservation History</h2>
             <div className="table-container">
-              {history.length === 0 ? (
+              {reservationsLoading ? (
+                <p className="empty-state">Loading history…</p>
+              ) : reservationsError ? (
+                <p className="empty-state slots-error">{reservationsError}</p>
+              ) : history.length === 0 ? (
                 <p className="empty-state">No reservation history</p>
               ) : (
                 <table className="data-table">
@@ -893,8 +983,9 @@ const UserDashboard = () => {
                 type="button"
                 className="btn btn-primary user-dash-sticky-confirm__cta"
                 onClick={() => handleCreateReservation()}
+                disabled={bookingSubmitting}
               >
-                Confirm Booking
+                {bookingSubmitting ? 'Booking…' : 'Confirm Booking'}
               </button>
             </div>
           </aside>
@@ -1029,8 +1120,8 @@ const UserDashboard = () => {
               )}
 
               <div className="modal-actions">
-                <button type="submit" className="btn btn-primary">
-                  Confirm Reservation
+                <button type="submit" className="btn btn-primary" disabled={bookingSubmitting}>
+                  {bookingSubmitting ? 'Booking…' : 'Confirm Reservation'}
                 </button>
                 <button
                   type="button"

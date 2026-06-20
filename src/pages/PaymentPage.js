@@ -5,8 +5,8 @@ import Navbar from '../components/Navbar';
 import './AuthPages.css';
 import './Dashboard.css';
 import { formatEgp } from '../utils/formatEgp';
-import { API_BASE, apiUnreachableMessage, apiBaseForErrors } from '../config/apiBase';
-import { fetchWithAuth } from '../utils/authFetch';
+import { apiUnreachableMessage, apiBaseForErrors } from '../config/apiBase';
+import { createPaymobSession, fetchPaymobConfig } from '../api/paymentApi';
 
 const PAY_PENDING_KEY = 'parkgo_pay_pending';
 
@@ -81,34 +81,19 @@ const PaymentPage = () => {
         })
       );
 
-      const res = await fetchWithAuth(`${API_BASE}/paymob/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: pending.totalAmount,
-          billing: billingPayload(),
-        }),
+      const result = await createPaymobSession({
+        amount: pending.totalAmount,
+        billing: billingPayload(),
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch {
+      if (!result.ok) {
         sessionStorage.removeItem(lk);
-        setError(
-          `The server did not return JSON (${res.status}). Check that the backend is running at ${apiBaseForErrors()}.`
-        );
+        setError(result.error || 'Could not start Paymob');
         setPhase('error');
         return;
       }
 
-      if (!res.ok || !data.ok) {
-        sessionStorage.removeItem(lk);
-        setError(data.error || `Could not start Paymob (${res.status})`);
-        setPhase('error');
-        return;
-      }
-
+      const data = result.data;
       if (!data.iframeUrl) {
         sessionStorage.removeItem(lk);
         setError('Paymob did not return a checkout URL.');
@@ -128,19 +113,15 @@ const PaymentPage = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/paymob/config`);
-        let d;
-        try {
-          d = await res.json();
-        } catch {
-          if (!cancelled) {
-            setPaymobEnabled(false);
-            setError(`Cannot read API response. Is the backend running at ${apiBaseForErrors()}?`);
-            setPhase('error');
-          }
+        const result = await fetchPaymobConfig();
+        if (cancelled) return;
+        if (!result.ok) {
+          setPaymobEnabled(false);
+          setError(result.error || `Is the backend running at ${apiBaseForErrors()}?`);
+          setPhase('error');
           return;
         }
-        if (cancelled) return;
+        const d = result.config;
         if (d && d.ok) setPaymobEnabled(Boolean(d.enabled));
         else setPaymobEnabled(false);
       } catch (err) {

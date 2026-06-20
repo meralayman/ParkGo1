@@ -1,10 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -12,28 +11,19 @@ import { Screen } from '../../components/Screen';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
-import { Colors, statusColor } from '../../utils/colors';
-import { LandingBackground } from '../../components/LandingBackground';
+import { AlexandriaParkingGrid } from '../../components/AlexandriaParkingGrid';
+import { DashboardMasthead } from '../../components/DashboardMasthead';
+import { SectionTitle, SectionHint, HintGreen } from '../../components/SectionTitle';
+import { Colors } from '../../utils/colors';
+import { LOT_NAME } from '../../constants/alexandriaLot';
 import { useAuth } from '../../store/AuthContext';
-import { getForecast, getSlots, getUserReservations } from '../../services/parkgo.service';
+import { onReservationsChanged } from '../../constants/parkgoEvents';
+import { getSlots, getUserReservations } from '../../services/parkgo.service';
 
-function parkingLevelFromSlots(slots) {
-  const total = slots.length || 0;
-  if (!total) return { level: 'unknown', available: 0, total: 0, reserved: 0, occupied: 0 };
-  const available = slots.filter((s) => Number(s.state) === 0).length;
-  const reserved = slots.filter((s) => Number(s.state) === 2).length;
-  const occupied = Math.max(0, total - available - reserved);
-  const ratio = available / total;
-  if (ratio >= 0.6) return { level: 'low', available, total, reserved, occupied };
-  if (ratio >= 0.3) return { level: 'medium', available, total, reserved, occupied };
-  return { level: 'high', available, total, reserved, occupied };
-}
-
-function guidanceMessage(level) {
-  if (level === 'low') return 'Plenty of free slots. Head to Booking to reserve one.';
-  if (level === 'medium') return 'Moderate availability. Reserve your slot soon.';
-  if (level === 'high') return 'Few spots left. Book from the Booking tab.';
-  return 'Loading availability…';
+function displayName(user) {
+  if (!user) return 'there';
+  const combined = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+  return combined || user.username || 'there';
 }
 
 function formatTs(value) {
@@ -43,34 +33,19 @@ function formatTs(value) {
   return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function forecastSnippet(forecast) {
-  if (!forecast || typeof forecast !== 'object') return null;
-  if (forecast.error && typeof forecast.error === 'string') return forecast.error;
-  if (Array.isArray(forecast.hours)) {
-    return `${forecast.hours.length} hourly point(s). Start Flask demand service for full charts.`;
-  }
-  const keys = Object.keys(forecast).slice(0, 4).join(', ');
-  return keys ? `Live data (${keys}…)` : 'Forecast linked.';
-}
-
 export function UserDashboardScreen({ navigation }) {
-  const { user } = useAuth();
-  const { width } = useWindowDimensions();
-  const wide = width >= 560;
-  const [loading, setLoading] = useState(false);
+  const { user, logout } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-
   const [slots, setSlots] = useState([]);
-  const [forecast, setForecast] = useState(null);
   const [activeBookings, setActiveBookings] = useState([]);
-
-  const level = useMemo(() => parkingLevelFromSlots(slots), [slots]);
+  const [history, setHistory] = useState([]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
-    setLoading(true);
     setError('');
+    setLoading(true);
     const problems = [];
 
     try {
@@ -78,29 +53,25 @@ export function UserDashboardScreen({ navigation }) {
       setSlots(Array.isArray(s) ? s : []);
     } catch (e) {
       setSlots([]);
-      problems.push(e?.message || 'Could not load the parking map.');
-    }
-
-    try {
-      const f = await getForecast();
-      setForecast(f && typeof f === 'object' ? f : null);
-    } catch (e) {
-      const msg =
-        e?.response?.data?.error || e?.response?.data?.message || e?.message || 'Forecast service unavailable.';
-      setForecast({ error: msg });
+      problems.push(e?.message || 'Failed to load slots');
     }
 
     try {
       const raw = await getUserReservations(user.id);
       const list = Array.isArray(raw) ? raw : [];
       const active = list.filter((x) => ['confirmed', 'checked_in'].includes(String(x.status || '').trim()));
+      const hist = list
+        .filter((x) => !['confirmed', 'checked_in'].includes(String(x.status || '').trim()))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       setActiveBookings(active);
+      setHistory(hist);
     } catch (e) {
       setActiveBookings([]);
-      problems.push(e?.message || 'Could not load your reservations.');
+      setHistory([]);
+      problems.push(e?.message || 'Failed to load bookings');
     }
 
-    setError(problems.length ? problems.join('\n') : '');
+    setError(problems.join('\n'));
     setLoading(false);
   }, [user?.id]);
 
@@ -109,6 +80,8 @@ export function UserDashboardScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  useEffect(() => onReservationsChanged(load), [load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -119,116 +92,126 @@ export function UserDashboardScreen({ navigation }) {
     }
   }, [load]);
 
-  const goBooking = () => navigation.navigate('Book');
-  /** Optional: open Booking with a preset slot picked from summaries / future UX. */
-  const goBookingWithSlot = (slotNo) =>
+  const subtitle = `Welcome back, ${displayName(user)}.\nChoose your parking spot to begin.`;
+
+  const goBookWithSlot = (slotNo) => {
     navigation.navigate('Book', { presetSlot: String(slotNo).trim() });
+  };
 
   return (
-    <LandingBackground>
-      <Screen
-        transparent
-        contentContainerStyle={{ gap: 16, paddingTop: 12 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.logoBlueLight} />}
-      >
-        <Card style={{ paddingVertical: 14 }}>
-          <Text style={{ color: Colors.logoBlueLight, fontWeight: '800', fontSize: 12 }}>ParkGo</Text>
-          <Text style={{ color: Colors.text, fontSize: 22, fontWeight: '900', marginTop: 6 }}>
-            Hi, {user?.first_name || user?.username || 'there'}
-          </Text>
-          <Text style={{ color: Colors.muted, marginTop: 6 }}>
-            Book a parking slot on the Booking tab, then open My QR when you arrive.
-          </Text>
-        </Card>
+    <Screen
+      contentContainerStyle={{ paddingTop: 0, paddingHorizontal: 0, gap: 0 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.logoBlueLight} />
+      }
+    >
+      <DashboardMasthead
+        title="User Dashboard"
+        subtitle={subtitle}
+        onLogout={() => logout()}
+        onReportIncident={() => navigation.navigate('History')}
+      />
 
+      <View style={{ padding: 16, gap: 14 }}>
         <Banner tone="danger" text={error} />
 
         <Card>
-          <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Quick actions</Text>
-          <View style={{ flexDirection: wide ? 'row' : 'column', gap: 10, marginTop: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Button title="Book parking" onPress={goBooking} tone="warning" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button title="My QR" onPress={() => navigation.navigate('QR')} tone="secondary" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button title="Booking history" onPress={() => navigation.navigate('History')} tone="secondary" />
-            </View>
-          </View>
-        </Card>
+          <SectionTitle title="Parking map — choose your bay">
+            <SectionHint>
+              <Text style={{ color: Colors.muted, fontSize: 15, lineHeight: 22 }}>
+                <Text style={{ fontWeight: '700', color: Colors.text }}>{LOT_NAME}</Text>
+                {' — tap a '}
+                <HintGreen>green</HintGreen>
+                {' bay, then open the Booking tab to set your time.'}
+              </Text>
+            </SectionHint>
+          </SectionTitle>
 
-        <Card>
-          <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Lot overview</Text>
           {loading && slots.length === 0 ? (
-            <ActivityIndicator style={{ marginTop: 14 }} color={Colors.logoBlueLight} />
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.logoBlueLight} />
+              <Text style={{ color: Colors.muted, marginTop: 8 }}>Loading slots…</Text>
+            </View>
+          ) : slots.length === 0 ? (
+            <Text style={{ color: Colors.muted }}>No slots available</Text>
           ) : (
-            <>
-              <Text style={{ color: statusColor(level.level), fontSize: 26, fontWeight: '900', marginTop: 8 }}>
-                {String(level.level).toUpperCase()}
-              </Text>
-              <Text style={{ color: Colors.muted, marginTop: 4 }}>
-                Available:{' '}
-                <Text style={{ color: Colors.text, fontWeight: '800' }}>{level.available}</Text> /{' '}
-                <Text style={{ color: Colors.text, fontWeight: '800' }}>{level.total}</Text>
-                {' · '}
-                Reserved: <Text style={{ color: Colors.text, fontWeight: '800' }}>{level.reserved}</Text>
-                {' · '}
-                Occupied: <Text style={{ color: Colors.text, fontWeight: '800' }}>{level.occupied}</Text>
-              </Text>
-              <Text style={{ color: Colors.text, fontWeight: '600', marginTop: 8 }}>{guidanceMessage(level.level)}</Text>
-            </>
+            <AlexandriaParkingGrid
+              slots={slots}
+              selectedSlotNo={null}
+              onSlotPress={(slotNo) => goBookWithSlot(slotNo)}
+              showLegend
+            />
           )}
         </Card>
 
         <Card>
-          <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Demand forecast</Text>
-          {!forecast ? (
-            <Text style={{ color: Colors.muted, marginTop: 8 }}>
-              Forecast not available yet. Ensure the Flask demand service is running if you use forecasts on the backend.
-            </Text>
-          ) : (
-            <Text style={{ color: Colors.muted, marginTop: 8 }}>
-              {forecastSnippet(forecast) || 'Forecast loaded.'}
-            </Text>
-          )}
-        </Card>
-
-        <Card>
-          <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Active bookings</Text>
+          <SectionTitle title="Current bookings" />
           {loading && activeBookings.length === 0 ? (
-            <ActivityIndicator style={{ marginTop: 14 }} color={Colors.logoBlueLight} />
+            <Text style={{ color: Colors.muted }}>Loading bookings…</Text>
           ) : activeBookings.length === 0 ? (
-            <Text style={{ color: Colors.muted, marginTop: 8 }}>None right now.</Text>
+            <Text style={{ color: Colors.muted }}>No current bookings</Text>
           ) : (
-            activeBookings.slice(0, 5).map((b, idx) => (
+            activeBookings.map((b, idx) => (
               <View
                 key={String(b.id)}
                 style={{
-                  marginTop: 12,
-                  paddingTop: 12,
+                  paddingTop: idx === 0 ? 0 : 12,
+                  marginTop: idx === 0 ? 0 : 12,
                   borderTopWidth: idx === 0 ? 0 : 1,
                   borderTopColor: Colors.border,
+                  gap: 4,
                 }}
               >
-                <Text style={{ color: Colors.text, fontWeight: '800' }}>#{b.id} · Slot {b.slot_no}</Text>
+                <Text style={{ color: Colors.text, fontWeight: '800' }}>
+                  #{b.id} · Bay {b.slot_no}
+                </Text>
+                <Text style={{ color: Colors.muted }}>Status: {String(b.status)}</Text>
                 <Text style={{ color: Colors.muted }}>Starts {formatTs(b.start_time)}</Text>
-                <Text style={{ color: Colors.muted }}>Status: {String(b.status || '')}</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <Button title="Open QR tab" tone="secondary" onPress={() => navigation.navigate('QR')} />
-                  <Button
-                    title={`Re-book ${String(b.slot_no)}`}
-                    tone="warning"
-                    onPress={() => goBookingWithSlot(b.slot_no)}
-                  />
-                </View>
+                <Button title="Open My QR" tone="secondary" onPress={() => navigation.navigate('QR')} />
               </View>
             ))
           )}
         </Card>
 
-        <Button title="Refresh dashboard" onPress={load} disabled={loading} loading={loading} />
-      </Screen>
-    </LandingBackground>
+        <Card>
+          <SectionTitle title="Reservation history" />
+          {loading && history.length === 0 ? (
+            <Text style={{ color: Colors.muted }}>Loading history…</Text>
+          ) : history.length === 0 ? (
+            <Text style={{ color: Colors.muted }}>No reservation history</Text>
+          ) : (
+            history.slice(0, 8).map((b, idx) => (
+              <View
+                key={String(b.id)}
+                style={{
+                  paddingTop: idx === 0 ? 0 : 10,
+                  marginTop: idx === 0 ? 0 : 10,
+                  borderTopWidth: idx === 0 ? 0 : 1,
+                  borderTopColor: Colors.border,
+                  gap: 2,
+                }}
+              >
+                <Text style={{ color: Colors.text, fontWeight: '700' }}>
+                  Bay {b.slot_no} · {String(b.status)}
+                </Text>
+                <Text style={{ color: Colors.muted, fontSize: 13 }}>{formatTs(b.start_time)}</Text>
+              </View>
+            ))
+          )}
+          {history.length > 0 ? (
+            <Button title="View all bookings" tone="secondary" onPress={() => navigation.navigate('History')} />
+          ) : null}
+        </Card>
+
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button title="Book parking" onPress={() => navigation.navigate('Book')} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="My QR" tone="secondary" onPress={() => navigation.navigate('QR')} />
+          </View>
+        </View>
+      </View>
+    </Screen>
   );
 }

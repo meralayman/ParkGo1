@@ -8,7 +8,6 @@ import { Card } from '../../components/Card';
 import { Banner } from '../../components/Banner';
 import { Colors } from '../../utils/colors';
 import { useAuth } from '../../store/AuthContext';
-import { getApiBaseUrl } from '../../utils/config';
 import { ParkingIllustration } from '../../components/ParkingIllustration';
 import { LandingBackground } from '../../components/LandingBackground';
 import { PublicNavbar } from '../../components/PublicNavbar';
@@ -44,21 +43,17 @@ export function LoginScreen({ navigation }) {
     <LandingBackground>
       <PublicNavbar navigation={navigation} />
 
-      <Screen contentContainerStyle={{ paddingTop: 18, gap: 16 }}>
-        <View style={{ gap: 10 }}>
-          <Text style={{ color: Colors.text, fontSize: 30, fontWeight: '900', letterSpacing: -0.6 }}>
+      <Screen contentContainerStyle={{ paddingTop: 24, gap: 20 }}>
+        <View style={{ alignItems: 'center', gap: 10 }}>
+          <Text style={{ color: Colors.text, fontSize: 28, fontWeight: '700', letterSpacing: -0.5, textAlign: 'center' }}>
             Welcome back
           </Text>
-          <Text style={{ color: 'rgba(148,163,184,0.95)', lineHeight: 19 }}>
+          <Text style={{ color: Colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 300 }}>
             Sign in to book, scan, and manage parking securely.
           </Text>
         </View>
 
-        <ParkingIllustration height={160} />
-
-        <Text style={{ color: 'rgba(148,163,184,0.85)', fontSize: 12 }}>
-          API: <Text style={{ color: Colors.text, fontWeight: '800' }}>{getApiBaseUrl()}</Text>
-        </Text>
+        <ParkingIllustration height={140} />
 
         <Banner tone="danger" text={error} />
 
@@ -77,12 +72,14 @@ export function LoginScreen({ navigation }) {
             placeholder="••••••••"
             secureTextEntry
           />
-          <Button title="Login" onPress={onSubmit} loading={busy} />
+          <View style={{ marginTop: 4 }}>
+            <Button title="Login" onPress={onSubmit} loading={busy} size="lg" />
+          </View>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
-            <Text style={{ color: Colors.muted }}>No account?</Text>
-            <Pressable onPress={() => navigation.navigate('Register')}>
-              <Text style={{ color: Colors.logoBlueLight, fontWeight: '800' }}>Register</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 }}>
+            <Text style={{ color: Colors.muted, fontSize: 14 }}>No account?</Text>
+            <Pressable onPress={() => navigation.navigate('Register')} hitSlop={8}>
+              <Text style={{ color: Colors.logoBlueLight, fontWeight: '700', fontSize: 14 }}>Register</Text>
             </Pressable>
           </View>
         </Card>

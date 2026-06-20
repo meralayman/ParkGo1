@@ -62,9 +62,19 @@ const chatbotRateLimiter = rateLimit({
   handler: json429("Too many chat messages. Please wait a moment and try again."),
 });
 
+/** Physical gate device: POST /gate/device/scan (per IP — one device per gate lane). */
+const gateDeviceRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: json429("Too many gate device scan requests"),
+});
+
 module.exports = {
   loginRateLimiter,
   bookingRateLimiter,
   qrRateLimiter,
   chatbotRateLimiter,
+  gateDeviceRateLimiter,
 };

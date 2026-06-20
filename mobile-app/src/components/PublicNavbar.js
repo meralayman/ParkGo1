@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '../utils/colors';
 
@@ -46,14 +47,19 @@ export function PublicNavbar({ navigation }) {
   const gap = compact ? 6 : 8;
 
   return (
-    <View
+    <SafeAreaView
+      edges={['top']}
       style={{
-        paddingHorizontal: Math.max(12, Math.min(18, width * 0.045)),
-        paddingVertical: compact ? 10 : 12,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(148,163,184,0.12)',
       }}
     >
+      <View
+        style={{
+          paddingHorizontal: Math.max(12, Math.min(18, width * 0.045)),
+          paddingVertical: compact ? 10 : 12,
+        }}
+      >
       <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44 }}>
         <View style={{ flex: 1 }} />
 
@@ -82,6 +88,7 @@ export function PublicNavbar({ navigation }) {
           <PrimaryPill title="Sign up" onPress={() => navigation.navigate('Register')} />
         </View>
       </View>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }

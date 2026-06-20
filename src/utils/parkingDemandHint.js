@@ -1,4 +1,4 @@
-import { API_BASE } from '../config/apiBase';
+import { apiPost } from '../api/client';
 
 /**
  * Weekend flag aligned with backend train_model: Sat/Sun → day_type 1.
@@ -19,13 +19,9 @@ export async function fetchParkingDemandInsight(startTime) {
   try {
     const hour = startTime.getHours();
     const day_type = dayTypeFromDate(startTime);
-    const res = await fetch(`${API_BASE}/api/predict-demand`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hour, day_type }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data || typeof data.final_demand_level !== 'string') {
+    const res = await apiPost('/api/predict-demand', { hour, day_type }, false);
+    const data = res.ok ? res.data : null;
+    if (!data || typeof data.final_demand_level !== 'string') {
       return null;
     }
     return {

@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotifier } from '../context/NotifierContext';
 import './Navbar.css';
 
 const Navbar = ({ showAuthLinks = false, variant = 'default', hideLotDesignerLink = false }) => {
   const { user, logout } = useAuth();
+  const { toast } = useNotifier();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {
     setMobileOpen(false);
     await logout();
+    toast('You have been logged out.', { variant: 'info', duration: 4000 });
     navigate('/');
   };
 

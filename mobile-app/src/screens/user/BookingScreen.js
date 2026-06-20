@@ -8,8 +8,11 @@ import { Card } from '../../components/Card';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
+import { AlexandriaParkingGrid } from '../../components/AlexandriaParkingGrid';
+import { DashboardMasthead } from '../../components/DashboardMasthead';
+import { SectionTitle, SectionHint, HintGreen } from '../../components/SectionTitle';
 import { Colors } from '../../utils/colors';
-import { SlotGrid } from '../../components/SlotGrid';
+import { LOT_NAME } from '../../constants/alexandriaLot';
 import { useAuth } from '../../store/AuthContext';
 import { createReservation, getSlots } from '../../services/parkgo.service';
 import { bookingStorage } from '../../services/bookingStorage';
@@ -23,7 +26,6 @@ function isTimeHm(s) {
   return /^\d{2}:\d{2}$/.test(String(s || '').trim());
 }
 
-/** iOS/Safari mishandles `new Date("YYYY-MM-DDTHH:mm")`; use local calendar fields. */
 function parseLocalStart(dateStr, timeStr) {
   const d = String(dateStr || '').trim();
   const t = String(timeStr || '').trim();
@@ -47,14 +49,20 @@ function nextWholeHourHm(d = new Date()) {
   const x = new Date(d.getTime());
   x.setMinutes(0, 0, 0);
   x.setHours(x.getHours() + 1);
-  const hh = String(x.getHours()).padStart(2, '0');
-  return `${hh}:00`;
+  return `${String(x.getHours()).padStart(2, '0')}:00`;
+}
+
+function displayName(user) {
+  if (!user) return 'there';
+  const combined = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+  return combined || user.username || 'there';
 }
 
 export function BookingScreen({ navigation }) {
   const route = useRoute();
-  const { user } = useAuth();
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const { user, logout } = useAuth();
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [slotsError, setSlotsError] = useState('');
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const selectedSlotRef = useRef(null);
@@ -70,18 +78,8 @@ export function BookingScreen({ navigation }) {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const availability = useMemo(() => {
-    const total = slots.length || 0;
-    const available = slots.filter((s) => Number(s.state) === 0).length;
-    const reserved = slots.filter((s) => Number(s.state) === 2).length;
-    const occupied = Math.max(0, total - available - reserved);
-    return { total, available, reserved, occupied };
-  }, [slots]);
-
-  // Stable callback: selecting a slot must NOT change this identity — otherwise useFocusEffect
-  // refetches immediately on every tap and can race/clear selection.
   const loadSlots = useCallback(async () => {
-    setError('');
+    setSlotsError('');
     setLoadingSlots(true);
     try {
       const s = await getSlots();
@@ -92,7 +90,7 @@ export function BookingScreen({ navigation }) {
         if (!row || Number(row.state) !== 0) setSelectedSlot(null);
       }
     } catch (e) {
-      setError(e?.message || 'Failed to load slots');
+      setSlotsError(e?.message || 'Failed to load slots');
     } finally {
       setLoadingSlots(false);
     }
@@ -131,6 +129,16 @@ export function BookingScreen({ navigation }) {
     }, [navigation, route.params?.presetSlot, slots])
   );
 
+  const onSelectSlot = async (slotNo) => {
+    const key = String(slotNo).trim();
+    setSelectedSlot(key);
+    try {
+      await AsyncStorage.setItem(PARKGO_PENDING_SLOT_KEY, key);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const startDateTime = useMemo(() => parseLocalStart(date, time), [date, time]);
 
   const duration = useMemo(() => {
@@ -144,7 +152,7 @@ export function BookingScreen({ navigation }) {
   const submit = async () => {
     setError('');
     if (!canSubmit) {
-      setError('Select an available parking slot and enter a valid date/time.');
+      setError('Select an available parking bay and enter a valid date/time.');
       return;
     }
     setCreating(true);
@@ -159,11 +167,7 @@ export function BookingScreen({ navigation }) {
         slotNo: selectedSlot,
       });
       const reservation = data?.reservation || null;
-      const qrJwt =
-        data?.qrJwt ??
-        reservation?.qrJwt ??
-        reservation?.qr_jwt ??
-        null;
+      const qrJwt = data?.qrJwt ?? reservation?.qrJwt ?? reservation?.qr_jwt ?? null;
       await bookingStorage.setLastBooking({ reservation, qrJwt });
       await AsyncStorage.removeItem(PARKGO_PENDING_SLOT_KEY).catch(() => {});
       await loadSlots();
@@ -184,91 +188,97 @@ export function BookingScreen({ navigation }) {
     }
   };
 
+  const subtitle = `Welcome back, ${displayName(user)}.\nChoose your parking spot to begin.`;
+
   return (
-    <Screen contentContainerStyle={{ paddingBottom: 24 }}>
-      <Card>
-        <Text style={{ color: Colors.text, fontSize: 18, fontWeight: '900' }}>Your booking</Text>
-        <Text style={{ color: Colors.muted, lineHeight: 20 }}>
-          Pick a green slot, then set date and start time. You’ll get a signed QR after confirmation.
-        </Text>
-      </Card>
+    <Screen contentContainerStyle={{ paddingTop: 0, paddingHorizontal: 0, gap: 0 }}>
+      <DashboardMasthead title="User Dashboard" subtitle={subtitle} onLogout={() => logout()} />
+      <View style={{ padding: 16, gap: 14 }}>
+        <Banner tone="danger" text={error} />
 
-      <Banner tone="danger" text={error} />
+        <Card>
+          <SectionTitle title="Parking map — choose your bay">
+            <SectionHint>
+              <Text style={{ color: Colors.muted, fontSize: 15, lineHeight: 22 }}>
+                <Text style={{ fontWeight: '700', color: Colors.text }}>{LOT_NAME}</Text>
+                {' — tap a '}
+                <HintGreen>green</HintGreen>
+                {' bay. Confirm date and time below after selecting a spot.'}
+              </Text>
+            </SectionHint>
+          </SectionTitle>
 
-      <Card>
-        <Text style={{ color: Colors.text, fontWeight: '900' }}>Parking map — choose your slot</Text>
-        <Text style={{ color: Colors.muted }}>
-          Available: <Text style={{ color: Colors.text, fontWeight: '900' }}>{availability.available}</Text> /{' '}
-          <Text style={{ color: Colors.text, fontWeight: '900' }}>{availability.total}</Text>{' '}
-          · Reserved: <Text style={{ color: Colors.text, fontWeight: '900' }}>{availability.reserved}</Text>{' '}
-          · Occupied: <Text style={{ color: Colors.text, fontWeight: '900' }}>{availability.occupied}</Text>
-        </Text>
+          {loadingSlots ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.logoBlueLight} />
+              <Text style={{ color: Colors.muted, marginTop: 8 }}>Loading slots…</Text>
+            </View>
+          ) : slotsError ? (
+            <Text style={{ color: Colors.danger }}>{slotsError}</Text>
+          ) : slots.length === 0 ? (
+            <Text style={{ color: Colors.muted }}>No slots available</Text>
+          ) : (
+            <AlexandriaParkingGrid
+              slots={slots}
+              selectedSlotNo={selectedSlot}
+              onSlotPress={onSelectSlot}
+              showLegend
+            />
+          )}
 
-        {loadingSlots && slots.length === 0 ? (
-          <ActivityIndicator color={Colors.logoBlueLight} />
-        ) : (
-          <SlotGrid
-            slots={slots}
-            selectedSlotNo={selectedSlot}
-            onSelect={(slotNo) => setSelectedSlot(slotNo)}
-            showLegend
+          <View
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: Colors.elevated,
+              borderWidth: 1,
+              borderColor: Colors.border,
+            }}
+          >
+            <Text style={{ color: Colors.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Selected bay
+            </Text>
+            <Text style={{ color: Colors.text, fontWeight: '900', fontSize: 18 }}>
+              {selectedSlot || 'None'}
+            </Text>
+          </View>
+
+          <Button title="Refresh map" onPress={loadSlots} disabled={loadingSlots} loading={loadingSlots} tone="secondary" />
+        </Card>
+
+        <Card>
+          <SectionTitle title="Schedule your stay" />
+          <TextField label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-06-01" />
+          <TextField label="Start time (HH:MM)" value={time} onChangeText={setTime} placeholder="14:00" />
+          <TextField
+            label="Duration (hours)"
+            value={String(durationHours)}
+            onChangeText={setDurationHours}
+            placeholder="1"
+            keyboardType="numeric"
           />
-        )}
 
-        <View
-          style={{
-            marginTop: 12,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: 'rgba(37,99,235,0.08)',
-          }}
-        >
-          <Text style={{ color: Colors.muted, fontSize: 12, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-            Selected slot
-          </Text>
-          <Text style={{ color: Colors.text, fontWeight: '900', fontSize: 18 }}>
-            {selectedSlot || 'None'}
-          </Text>
-        </View>
+          {!user?.id ? (
+            <Text style={{ color: Colors.muted }}>Log in to book a parking bay.</Text>
+          ) : !selectedSlot ? (
+            <Text style={{ color: Colors.muted }}>Tap a green available bay on the map above.</Text>
+          ) : !startDateTime ? (
+            <Text style={{ color: Colors.muted }}>Enter a valid date and start time.</Text>
+          ) : (
+            <Text style={{ color: Colors.muted }}>
+              Bay <Text style={{ color: Colors.text, fontWeight: '800' }}>{selectedSlot}</Text> · {date} {time} · {duration}h
+            </Text>
+          )}
 
-        <Button title="Refresh map" onPress={loadSlots} disabled={loadingSlots} loading={loadingSlots} tone="secondary" />
-      </Card>
-
-      <Card>
-        <Text style={{ color: Colors.text, fontWeight: '900' }}>Arrival details</Text>
-        <TextField label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-05-06" />
-        <TextField label="Start time (HH:MM)" value={time} onChangeText={setTime} placeholder="14:30" />
-        <TextField
-          label="Duration (hours)"
-          value={String(durationHours)}
-          onChangeText={setDurationHours}
-          placeholder="1"
-          keyboardType="numeric"
-        />
-
-        {!user?.id ? (
-          <Text style={{ color: Colors.muted, marginTop: 8 }}>Log in to book a parking slot.</Text>
-        ) : !selectedSlot ? (
-          <Text style={{ color: Colors.muted, marginTop: 8 }}>
-            Tap a green available slot on the map above, then book.
-          </Text>
-        ) : !startDateTime ? (
-          <Text style={{ color: Colors.muted, marginTop: 8 }}>Enter a valid date and start time (HH:MM).</Text>
-        ) : (
-          <Text style={{ color: Colors.muted, marginTop: 8 }}>
-            Booking <Text style={{ color: Colors.text, fontWeight: '800' }}>{selectedSlot}</Text> · {date} {time} ·{' '}
-            {duration}h
-          </Text>
-        )}
-
-        <Button
-          title={creating ? 'Booking…' : 'Book this slot'}
-          onPress={submit}
-          disabled={!canSubmit || creating}
-          loading={creating}
-        />
-      </Card>
+          <Button
+            title={creating ? 'Booking…' : 'Confirm Booking'}
+            onPress={submit}
+            disabled={!canSubmit || creating}
+            loading={creating}
+          />
+        </Card>
+      </View>
     </Screen>
   );
 }
-

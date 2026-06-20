@@ -23,7 +23,10 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "mobile": "npm run start --prefix mobile-app",
+    "mobile:clear": "npm run start:clear --prefix mobile-app",
+    "mobile:android": "npm run open:android --prefix mobile-app"
   },
   "eslintConfig": {
     "extends": [

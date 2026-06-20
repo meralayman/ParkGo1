@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
 import Navbar from '../components/Navbar';
-import { apiUrl } from '../config/apiBase';
-import { fetchWithAuth } from '../utils/authFetch';
+import { submitIncident } from '../api/incidentApi';
 import './Dashboard.css';
 
 const ReportIncidentPage = () => {
@@ -63,20 +62,9 @@ const ReportIncidentPage = () => {
       }
       if (photo) formData.append('photo', photo);
 
-      const res = await fetchWithAuth(apiUrl('/incidents'), {
-        method: 'POST',
-        body: formData,
-      });
-      const rawText = await res.text();
-      let data = {};
-      try {
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        data = { error: rawText?.slice(0, 200) || `Server error (${res.status})` };
-      }
-
-      if (!res.ok || !data.ok) {
-        toast(data.error || 'Could not submit your report. Please try again.', { variant: 'error' });
+      const result = await submitIncident(formData);
+      if (!result.ok) {
+        toast(result.error || 'Could not submit your report. Please try again.', { variant: 'error' });
         return;
       }
 

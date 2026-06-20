@@ -27,14 +27,32 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
+
+    const finish = () => {
+      if (!cancelled) setBootstrapped(true);
+    };
+
     (async () => {
       try {
+        const accessToken = await tokenStorage.getAccessToken();
+        const refreshToken = await tokenStorage.getRefreshToken();
+        if (cancelled) return;
+
+        if (!accessToken && !refreshToken) {
+          await tokenStorage.clear();
+          setUser(null);
+          return;
+        }
+
         const storedUser = await tokenStorage.getUser();
         if (cancelled) return;
         if (storedUser) setUser(storedUser);
 
-        // Validate token via /auth/me; if it 401s, axios layer will attempt refresh once.
-        const me = await fetchMe().catch(() => null);
+        // Validate token via /auth/me; cap wait so a dead API never blocks the UI.
+        const me = await Promise.race([
+          fetchMe().catch(() => null),
+          new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+        ]);
         if (cancelled) return;
         if (me) {
           setUser(me);
@@ -48,9 +66,10 @@ export function AuthProvider({ children }) {
           setUser(null);
         }
       } finally {
-        if (!cancelled) setBootstrapped(true);
+        finish();
       }
     })();
+
     return () => {
       cancelled = true;
     };

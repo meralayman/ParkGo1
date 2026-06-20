@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_BASE } from '../config/apiBase';
+import { apiGet } from '../api/client';
 import './ParkingDemandForecast.css';
 
 function badgeClass(labelColor) {
@@ -58,21 +58,14 @@ export default function ParkingDemandForecast() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/api/forecast`);
-        const data = await res.json().catch(() => null);
-
+        const res = await apiGet('/api/forecast', false);
         if (!res.ok) {
-          const msg =
-            data && typeof data.error === 'string'
-              ? data.error
-              : `Forecast unavailable (${res.status})`;
-          throw new Error(msg);
+          throw new Error(res.error || 'Forecast unavailable');
         }
-
+        const data = res.data;
         if (!Array.isArray(data)) {
           throw new Error('Unexpected forecast response');
         }
-
         if (!cancelled) setItems(data);
       } catch (e) {
         if (!cancelled) setError(e.message || 'Failed to load forecast');

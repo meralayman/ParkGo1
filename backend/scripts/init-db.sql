@@ -62,10 +62,12 @@ UPDATE reservations SET status = 'closed' WHERE status IN ('completed', 'used');
 ALTER TABLE reservations ADD CONSTRAINT reservations_status_check
   CHECK (status IN ('confirmed', 'checked_in', 'closed', 'cancelled', 'no_show'));
 
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS incident_reports (
   id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  gatekeeper_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  gatekeeper_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   reservation_id INTEGER REFERENCES reservations(id),
   full_name VARCHAR(255) NOT NULL,
   mobile VARCHAR(50),

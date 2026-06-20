@@ -119,22 +119,39 @@
 
 .parking-slots-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
   gap: 0.65rem;
 }
 
+@media (max-width: 480px) {
+  .parking-slots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    gap: 0.5rem;
+  }
+}
+
 .parking-slot {
-  min-height: 52px;
+  min-height: 56px;
   border-radius: 10px;
   border: 2px solid var(--border-subtle);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition:
     transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.25s ease,
     border-color 0.2s ease,
     filter 0.2s ease;
+}
+
+@media (max-width: 480px) {
+  .parking-slot {
+    min-height: 48px;
+    font-size: 0.8125rem;
+  }
 }
 
 .parking-slot.available {

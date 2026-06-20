@@ -11,11 +11,18 @@ import { gateCheckIn, gateCheckOut } from '../../services/parkgo.service';
 import { gateStorage } from '../../services/gateStorage';
 
 function gateBookingId(raw) {
-  // Backend currently parses bookingId with parseInt.
-  // If DB uses SERIAL ids, this will work. If DB uses UUID ids, backend needs update.
   const s = String(raw ?? '').trim();
   if (/^\d+$/.test(s)) return Number(s);
   return s;
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 }}>
+      <Text style={{ color: Colors.muted, fontSize: 14 }}>{label}</Text>
+      <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>{value || '—'}</Text>
+    </View>
+  );
 }
 
 export function GateActionScreen() {
@@ -60,51 +67,85 @@ export function GateActionScreen() {
     }
   };
 
-  return (
-    <Screen>
-      <Card>
-        <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Gate action</Text>
-        <Text style={{ color: Colors.muted }}>
-          Scan a QR first, then use check-in/check-out based on validation.
-        </Text>
-      </Card>
+  const nextIsCheckIn = nextAction === 'check-in';
+  const nextIsCheckOut = nextAction === 'check-out';
 
+  return (
+    <Screen contentContainerStyle={{ paddingTop: Colors.space.xl, gap: Colors.space.lg }}>
       <Banner tone="danger" text={error} />
 
       {reservation ? (
         <Card>
-          <Text style={{ color: Colors.text, fontWeight: '900' }}>Preview</Text>
-          <Text style={{ color: Colors.muted }}>Booking: {String(reservation.id)}</Text>
-          <Text style={{ color: Colors.muted }}>User: {String(reservation.user_id)}</Text>
-          <Text style={{ color: Colors.muted }}>Slot: {String(reservation.slot_no)}</Text>
-          <Text style={{ color: Colors.muted }}>Status: {String(reservation.status)}</Text>
-          <Text style={{ color: Colors.muted }}>
-            Next action: <Text style={{ color: Colors.text, fontWeight: '900' }}>{nextAction || '—'}</Text>
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: Colors.text, fontSize: 18, fontWeight: '700' }}>Scanned Booking</Text>
+            <View
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: Colors.radius.full,
+                backgroundColor: nextIsCheckIn
+                  ? 'rgba(16, 185, 129, 0.15)'
+                  : nextIsCheckOut
+                    ? 'rgba(245, 158, 11, 0.15)'
+                    : 'rgba(148, 163, 184, 0.1)',
+                borderWidth: 1,
+                borderColor: nextIsCheckIn ? Colors.success : nextIsCheckOut ? Colors.warning : Colors.border,
+              }}
+            >
+              <Text
+                style={{
+                  color: nextIsCheckIn ? Colors.successLight : nextIsCheckOut ? Colors.warningLight : Colors.muted,
+                  fontSize: 12,
+                  fontWeight: '700',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {nextAction || 'No action'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 8, paddingTop: 8 }}>
+            <DetailRow label="Booking ID" value={`#${reservation.id}`} />
+            <DetailRow label="Bay" value={reservation.slot_no} />
+            <DetailRow label="Status" value={reservation.status} />
+            <DetailRow label="User" value={reservation.user_id} />
+          </View>
         </Card>
       ) : (
-        <Card>
-          <Text style={{ color: Colors.muted }}>No preview loaded yet.</Text>
+        <Card style={{ alignItems: 'center', paddingVertical: 32 }}>
+          <Text style={{ color: Colors.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+            No booking scanned yet.{'\n'}Go to the Scan tab and point at a booking QR.
+          </Text>
         </Card>
       )}
 
-      <Card>
-        <Button
-          title="Check-in"
-          onPress={() => run('check-in')}
-          disabled={loading || nextAction !== 'check-in'}
-          loading={loading && nextAction === 'check-in'}
-        />
-        <Button
-          title="Check-out"
-          onPress={() => run('check-out')}
-          tone="warning"
-          disabled={loading || nextAction !== 'check-out'}
-          loading={loading && nextAction === 'check-out'}
-        />
-        <Button title="Clear" tone="danger" onPress={() => gateStorage.clear().then(() => setPreview(null))} />
-      </Card>
+      {reservation ? (
+        <View style={{ gap: Colors.space.md }}>
+          <Button
+            title="Check In"
+            onPress={() => run('check-in')}
+            disabled={loading || !nextIsCheckIn}
+            loading={loading && nextIsCheckIn}
+            tone={nextIsCheckIn ? 'success' : 'secondary'}
+            size="lg"
+          />
+          <Button
+            title="Check Out"
+            onPress={() => run('check-out')}
+            tone={nextIsCheckOut ? 'warning' : 'secondary'}
+            disabled={loading || !nextIsCheckOut}
+            loading={loading && nextIsCheckOut}
+            size="lg"
+          />
+          <Button
+            title="Clear scan"
+            tone="danger"
+            size="sm"
+            onPress={() => gateStorage.clear().then(() => setPreview(null))}
+          />
+        </View>
+      ) : null}
     </Screen>
   );
 }
-

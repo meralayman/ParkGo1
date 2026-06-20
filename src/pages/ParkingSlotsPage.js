@@ -4,7 +4,8 @@ import Navbar from '../components/Navbar';
 import AlexandriaParkingGrid from '../components/AlexandriaParkingGrid';
 import { LOT_NAME } from '../constants/alexandriaLot';
 import { PARKGO_PENDING_SLOT_KEY } from '../constants/pendingSlot';
-import { API_BASE } from '../config/apiBase';
+import { fetchSlots } from '../api/slotApi';
+import { apiUnreachableMessage } from '../config/apiBase';
 import './ParkingSlotsPage.css';
 
 export { ALEXANDRIA_LOT_PATH, LOT_NAME } from '../constants/alexandriaLot';
@@ -19,15 +20,19 @@ const ParkingSlotsPage = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/slots`);
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.slots)) {
-        setSlots(data.slots);
+      const result = await fetchSlots();
+      if (result.ok) {
+        setSlots(result.slots);
       } else {
-        setError(data.error || 'Failed to load parking map');
+        setError(result.error || 'Failed to load parking map');
       }
     } catch (err) {
-      setError(err.message || 'Cannot reach the server');
+      const msg = err?.message || '';
+      setError(
+        msg === 'Failed to fetch' || msg.includes('NetworkError')
+          ? apiUnreachableMessage()
+          : msg || 'Cannot reach the server'
+      );
     } finally {
       setLoading(false);
     }

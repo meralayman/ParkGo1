@@ -5,13 +5,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/store/AuthContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { Chatbot } from './src/components/Chatbot';
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <RootNavigator />
-        <StatusBar style="dark" />
+        <Chatbot />
+        <StatusBar style="light" />
       </AuthProvider>
     </SafeAreaProvider>
   );

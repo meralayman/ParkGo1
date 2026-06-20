@@ -6,8 +6,12 @@ import Navbar from "../components/Navbar";
 import "./Dashboard.css";
 import { formatEgp } from "../utils/formatEgp";
 
-import { API_BASE } from "../config/apiBase";
-import { fetchWithAuth } from "../utils/authFetch";
+import {
+  gatePreviewQr,
+  gateGetBooking,
+  gateCheckIn,
+  gateCheckOut,
+} from "../api/gateApi";
 import { CHECK_IN_DEADLINE_MINUTES } from "../constants/checkInDeadline";
 
 const QR_READER_ID = "gatekeeper-qr-reader";
@@ -91,16 +95,9 @@ const GatekeeperDashboard = () => {
 
     try {
       if (isLikelySignedQr(trimmed)) {
-        const res = await fetchWithAuth(`${API_BASE}/gate/qr/preview`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ qr: trimmed }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setStatusMsg(
-            data.error || (res.status === 401 ? "QR code expired" : "Invalid QR code")
-          );
+        const data = await gatePreviewQr(trimmed);
+        if (!data.ok) {
+          setStatusMsg(data.error || "Invalid QR code");
         } else {
           applyLoaded(data);
         }
@@ -113,9 +110,8 @@ const GatekeeperDashboard = () => {
         return;
       }
 
-      const res = await fetchWithAuth(`${API_BASE}/gate/booking/${bookingId}`);
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
+      const data = await gateGetBooking(bookingId);
+      if (!data.ok) {
         setStatusMsg(data.error || "Invalid booking");
         return;
       }
@@ -136,12 +132,7 @@ const GatekeeperDashboard = () => {
     setLoading(true);
     setStatusMsg("Checking in...");
     try {
-      const res = await fetchWithAuth(`${API_BASE}/gate/check-in`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId }),
-      });
-      const data = await res.json();
+      const data = await gateCheckIn(bookingId);
       if (!data.ok) {
         setStatusMsg(data.error || "Check-in failed");
         setLoading(false);
@@ -165,12 +156,7 @@ const GatekeeperDashboard = () => {
     setLoading(true);
     setStatusMsg("Checking out...");
     try {
-      const res = await fetchWithAuth(`${API_BASE}/gate/check-out`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId }),
-      });
-      const data = await res.json();
+      const data = await gateCheckOut(bookingId);
       if (!data.ok) {
         setStatusMsg(data.error || "Check-out failed");
         setLoading(false);

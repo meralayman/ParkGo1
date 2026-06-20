@@ -1,16 +1,24 @@
 import axios from 'axios';
-import { getApiBaseUrl } from '../utils/config';
+import { getApiBaseUrl, getApiConfigHint } from '../utils/config';
 import { tokenStorage } from './tokenStorage';
 
-const baseURL = getApiBaseUrl();
+function currentBaseUrl() {
+  return getApiBaseUrl();
+}
 
-const plain = axios.create({ baseURL, timeout: 20000 });
-
-export const api = axios.create({
-  baseURL,
+const plain = axios.create({ timeout: 20000 });
+const api = axios.create({
   timeout: 20000,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
+
+function attachBaseUrl(config) {
+  config.baseURL = currentBaseUrl();
+  return config;
+}
+
+plain.interceptors.request.use(attachBaseUrl);
+api.interceptors.request.use(attachBaseUrl);
 
 let refreshInFlight = null;
 
@@ -44,15 +52,17 @@ api.interceptors.response.use(
   async (error) => {
     // Friendly network errors for UI (timeouts / offline / DNS)
     if (error?.code === 'ECONNABORTED') {
+      const hint = getApiConfigHint();
       const e = new Error(
-        `Request timed out. Check API base URL in mobile-app/.env.\n\nCurrent: ${baseURL}\n\nIf you're on a real phone, use your PC LAN IP (e.g. http://192.168.x.x:5000), not 10.0.2.2.`
+        `Request timed out. Check API base URL in mobile-app/.env.\n\nCurrent: ${currentBaseUrl()}` +
+          (hint ? `\n\n${hint}` : '\n\nIf you are on a real phone, set EXPO_PUBLIC_API_LAN_HOST to your PC Wi‑Fi IP (not 10.0.2.2).')
       );
       e.code = 'NETWORK_TIMEOUT';
       throw e;
     }
     if (!error?.response) {
       const e = new Error(
-        `Cannot reach the server.\n\nCurrent API: ${baseURL}\n\nMake sure backend is running and the phone/emulator can reach it.`
+        `Cannot reach the server.\n\nCurrent API: ${currentBaseUrl()}\n\nMake sure backend is running and the phone/emulator can reach it.`
       );
       e.code = 'NETWORK_ERROR';
       throw e;
@@ -61,16 +71,16 @@ api.interceptors.response.use(
     const original = error?.config;
     const status = error?.response?.status;
     const reqUrl = String(original?.url || '');
+    const data = error?.response?.data;
+    const serverMsg = data?.error || data?.message;
 
     /**
      * Gate preview returns HTTP 401 when the *booking* JWT is expired or invalid.
      * That must not trigger access-token refresh (wrong flow; hides the real message).
      */
     if (status === 401 && reqUrl.includes('/gate/qr/preview')) {
-      const data = error?.response?.data;
       const msg =
-        data?.error ||
-        data?.message ||
+        serverMsg ||
         'Booking QR was rejected. It may be expired — open My QR and refresh, or book again.';
       const e = new Error(msg);
       if (data?.code) e.code = data.code;
@@ -80,10 +90,7 @@ api.interceptors.response.use(
 
     // Rate limit: bubble up cleanly for UI
     if (status === 429) {
-      const msg =
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        'Too many requests. Please wait and try again.';
+      const msg = serverMsg || 'Too many requests. Please wait and try again.';
       const e = new Error(msg);
       e.code = 'RATE_LIMIT';
       e.status = 429;
@@ -91,6 +98,12 @@ api.interceptors.response.use(
     }
 
     if (status !== 401 || !original || original._retry) {
+      if (serverMsg) {
+        const e = new Error(serverMsg);
+        e.status = status;
+        if (data?.code) e.code = data.code;
+        throw e;
+      }
       throw error;
     }
 
@@ -122,4 +135,6 @@ api.interceptors.response.use(
     }
   }
 );
+
+export { api };
 
