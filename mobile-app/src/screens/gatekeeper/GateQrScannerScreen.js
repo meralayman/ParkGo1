@@ -59,6 +59,7 @@ export function GateQrScannerScreen({ navigation }) {
     try {
       const preview = await gatePreviewQr(qr);
       await gateStorage.setLastPreview({ scannedQr: qr, ...preview });
+      await gateStorage.addScanRecord(preview);
       navigation.navigate('Gate');
     } catch (e) {
       const msg = e?.message || 'Invalid QR';

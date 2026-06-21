@@ -55,6 +55,7 @@ export function GateActionScreen() {
     try {
       const id = gateBookingId(reservation.id);
       const out = action === 'check-in' ? await gateCheckIn(id) : await gateCheckOut(id);
+      await gateStorage.addScanRecord(preview, action);
       Alert.alert('Success', out?.message || 'Done');
       await gateStorage.clear();
       setPreview(null);
