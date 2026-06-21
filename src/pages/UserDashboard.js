@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
 import Navbar from '../components/Navbar';
@@ -28,6 +29,7 @@ import {
   CHECK_IN_WARNING_LEAD_MINUTES,
 } from '../constants/checkInDeadline';
 import { tieredBookingTotalEgp, extraHourChargeEgp } from '../utils/parkingPricing';
+import { useParkgoPaymentSuccessToast } from '../hooks/useParkgoPaymentSuccessToast';
 
 /** Match backend overstay / extend extra-per-hour; set REACT_APP_OVERSTAY_HOURLY_RATE to override display. */
 const OVERSTAY_RATE_DISPLAY =
@@ -40,6 +42,8 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast, confirm } = useNotifier();
+
+  useParkgoPaymentSuccessToast(toast);
 
   const [reservations, setReservations] = useState([]);
   const [history, setHistory] = useState([]);
