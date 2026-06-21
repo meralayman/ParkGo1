@@ -12,7 +12,6 @@ import { LOT_NAME } from '../constants/alexandriaLot';
 import { PARKGO_PENDING_SLOT_KEY } from '../constants/pendingSlot';
 import { formatEgp } from '../utils/formatEgp';
 import './Dashboard.css';
-import { QRCodeCanvas } from "qrcode.react";
 
 import { fetchSlots as apiFetchSlots } from '../api/slotApi';
 import {
