@@ -6,6 +6,7 @@ import { UserDashboardScreen } from '../../screens/user/UserDashboardScreen';
 import { BookingScreen } from '../../screens/user/BookingScreen';
 import { QrCodeScreen } from '../../screens/user/QrCodeScreen';
 import { BookingHistoryScreen } from '../../screens/user/BookingHistoryScreen';
+import { UserIncidentScreen } from '../../screens/user/UserIncidentScreen';
 import { navScreenOptions } from '../widgets/navScreenOptions';
 
 const Tab = createBottomTabNavigator();
@@ -41,7 +42,11 @@ export function UserTabs() {
         component={BookingHistoryScreen}
         options={{ title: 'Bookings', ...tabIcon('📋') }}
       />
+      <Tab.Screen
+        name="Incident"
+        component={UserIncidentScreen}
+        options={{ title: 'Report', headerShown: true, headerTitle: 'Report Incident', ...tabIcon('🚨') }}
+      />
     </Tab.Navigator>
   );
 }
-

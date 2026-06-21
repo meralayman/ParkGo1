@@ -109,7 +109,7 @@ export function UserDashboardScreen({ navigation }) {
         title="User Dashboard"
         subtitle={subtitle}
         onLogout={() => logout()}
-        onReportIncident={() => navigation.navigate('History')}
+        onReportIncident={() => navigation.navigate('Incident')}
       />
 
       <View style={{ padding: 16, gap: 14 }}>
