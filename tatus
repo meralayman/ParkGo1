@@ -1,5 +1,0 @@
-[33mdb481e9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mcommit-changes[m[33m)[m Harden API security and polish web + mobile UI
-[33mfd07eaa[m[33m ([m[1;31morigin/commit-changes[m[33m)[m describe your changes
-[33mc758bb2[m Enhance user authentication flow by implementing session timeout feature and improving error handling for login attempts.
-[33m2b9c8a1[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m describe your changes
-[33mb961754[m Describe what you changed
