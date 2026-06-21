@@ -1,28 +1,24 @@
-/* Tighten title spacing when rules sit directly under the modal heading */
+/* Parking Rules – Premium Dark */
 .modal-content:has(.parking-rules-modal-box) > h2 {
   margin-bottom: 14px;
 }
 
-/* Make Reservation modal — high-contrast defined box */
 .parking-rules-modal-box {
   display: flex;
   align-items: stretch;
   margin: 0 0 1.35rem 0;
-  border-radius: 12px;
-  /* Visible: overflow:hidden clipped multiple <li> rows in some WebKit/Chromium modal stacks */
+  border-radius: var(--radius-lg);
   overflow: visible;
-  border: 2px solid rgba(96, 165, 250, 0.85);
-  box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.9),
-    0 6px 24px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  background: linear-gradient(160deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 0.98) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.05);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: var(--glass-blur);
 }
 
 .parking-rules-modal-box__accent {
-  width: 6px;
+  width: 4px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #38bdf8 0%, #2563eb 45%, #6366f1 100%);
+  background: var(--gradient-primary);
 }
 
 .parking-rules-modal-box__inner {
@@ -38,8 +34,8 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #f1f5f9;
-  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .parking-rules-modal-box__rules {
@@ -53,15 +49,15 @@
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   font-size: 0.9375rem;
   line-height: 1.6;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .parking-rules-modal-box__rule-marker {
   flex-shrink: 0;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .parking-rules-modal-box__rule-text {
@@ -69,7 +65,6 @@
   min-width: 0;
 }
 
-/* User dashboard — matches .dashboard-section rhythm */
 .dashboard-content .parking-rules-section {
   margin-bottom: 30px;
 }

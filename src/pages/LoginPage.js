@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { getStoredAccessToken } from '../utils/authFetch';
@@ -177,7 +178,12 @@ const LoginPage = () => {
     <div className="auth-page-wrap">
       <Navbar showAuthLinks />
       <div className="auth-container">
-      <div className="auth-card">
+      <motion.div
+        className="auth-card"
+        initial={{ opacity: 0, y: 30, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="auth-card-logo">
           <img
             src={`${process.env.PUBLIC_URL || ''}/parkgo-logo.png`}
@@ -267,7 +273,7 @@ const LoginPage = () => {
         <p className="auth-footer">
           Don't have an account? <Link to="/signup">Sign up here</Link>
         </p>
-      </div>
+      </motion.div>
     </div>
     </div>
   );

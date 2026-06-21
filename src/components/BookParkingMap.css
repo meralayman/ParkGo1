@@ -1,13 +1,14 @@
+/* Map – Premium dark theme */
 .book-parking-leaflet-map {
   width: 100%;
   height: 100%;
   min-height: 360px;
   z-index: 1;
-  background: #0c1524;
+  background: #060a12;
 }
 
 .book-parking-leaflet-map .leaflet-tile-pane {
-  filter: saturate(0.98) brightness(0.94);
+  filter: saturate(0.95) brightness(0.88) contrast(1.05);
 }
 
 .book-parking-map-pin {
@@ -19,16 +20,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   margin: 0 auto;
   border-radius: 50%;
-  background: var(--success, #10b981);
+  background: linear-gradient(135deg, var(--success, #10b981), #059669);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 700;
-  border: 3px solid var(--bg-card, #1e293b);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(16, 185, 129, 0.35);
+  border: 3px solid rgba(8, 12, 20, 0.9);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.2);
+  animation: pinPulse 2s ease-in-out infinite;
+}
+
+@keyframes pinPulse {
+  0%, 100% { box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5), 0 0 30px rgba(16, 185, 129, 0.3); }
 }
 
 .book-parking-map-popup__title {
@@ -47,35 +54,39 @@
 .book-parking-map-popup__btn {
   display: block;
   width: 100%;
-  padding: 0.5rem;
-  border-radius: 8px;
-  background: var(--accent-blue, #2563eb);
+  padding: 0.55rem;
+  border-radius: var(--radius-md, 12px);
+  background: var(--gradient-primary);
   color: #fff !important;
   font-weight: 600;
   font-size: 0.8125rem;
   text-align: center;
   text-decoration: none;
+  box-shadow: 0 2px 8px var(--glow-blue);
+  transition: all var(--transition-smooth);
 }
 
 .book-parking-map-popup__btn:hover {
-  filter: brightness(1.08);
+  box-shadow: 0 4px 15px var(--glow-blue);
+  transform: translateY(-1px);
 }
 
 .book-parking-leaflet-map .leaflet-popup-content-wrapper {
-  border-radius: 12px;
-  background: var(--bg-card, #1e293b);
-  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.25));
-  box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.45));
+  border-radius: var(--radius-lg, 16px);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.15));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1);
 }
 
 .book-parking-leaflet-map .leaflet-popup-content {
-  margin: 0.75rem 1rem;
+  margin: 0.85rem 1.1rem;
   min-width: 180px;
 }
 
 .book-parking-leaflet-map .leaflet-popup-tip {
-  background: var(--bg-card, #1e293b);
-  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.25));
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.15));
 }
 
 .book-parking-leaflet-map.leaflet-container a.leaflet-popup-close-button {
@@ -89,8 +100,9 @@
 
 .book-parking-leaflet-map .leaflet-control-attribution {
   font-size: 10px;
-  background: rgba(15, 23, 42, 0.82) !important;
+  background: rgba(8, 12, 20, 0.9) !important;
   color: #94a3b8 !important;
+  backdrop-filter: blur(8px);
 }
 
 .book-parking-leaflet-map .leaflet-control-attribution a {

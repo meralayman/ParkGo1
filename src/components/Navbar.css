@@ -1,11 +1,15 @@
-/* ParkGO Navbar – full width, responsive with hamburger on mobile */
+/* ParkGO Navbar – Premium Glassmorphism */
 .parkgo-navbar {
   background: var(--navbar-bg) !important;
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
   border-bottom: 1px solid var(--border-subtle);
   min-height: var(--navbar-height);
   padding: 0;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.25);
-  position: relative;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .parkgo-navbar .parkgo-navbar-container {
@@ -23,12 +27,12 @@
 
 @media (min-width: 992px) {
   .parkgo-navbar .parkgo-navbar-container {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
 }
 
-/* Hamburger – visible only on mobile */
+/* Hamburger */
 .parkgo-navbar-toggler {
   display: flex;
   flex-direction: column;
@@ -38,35 +42,43 @@
   height: 40px;
   padding: 0;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg-elevated);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: all var(--transition-smooth);
+  backdrop-filter: var(--glass-blur);
 }
+
 .parkgo-navbar-toggler:hover {
-  background: var(--nav-link-hover-bg);
-  border-color: var(--logo-blue);
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--border-glow);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
 }
+
 .parkgo-navbar-toggler span {
   display: block;
   width: 20px;
   height: 2px;
   background: var(--text-primary);
-  border-radius: 1px;
+  border-radius: 2px;
   margin: 0 auto;
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
 .parkgo-navbar-toggler span:nth-child(1).open {
   transform: translateY(7px) rotate(45deg);
 }
+
 .parkgo-navbar-toggler span:nth-child(2).open {
   opacity: 0;
+  transform: scaleX(0);
 }
+
 .parkgo-navbar-toggler span:nth-child(3).open {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* Mobile collapse panel */
+/* Mobile panel */
 .parkgo-navbar-mobile {
   width: 100%;
   flex-basis: 100%;
@@ -76,7 +88,8 @@
 .parkgo-navbar-collapse {
   max-height: 0;
   overflow: hidden;
-  background: var(--bg-card);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: var(--glass-blur-heavy);
   border-top: 1px solid var(--border-subtle);
   margin: 0 -1rem -1px -1rem;
   padding: 0 1rem;
@@ -84,13 +97,12 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0.5rem;
-  transition: max-height 0.3s ease, padding 0.3s ease;
-  box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), padding 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .parkgo-navbar-collapse.show {
-  max-height: 220px;
-  padding: 1rem;
+  max-height: 240px;
+  padding: 1.25rem 1rem;
 }
 
 .parkgo-navbar-collapse .parkgo-nav-link,
@@ -106,14 +118,14 @@
   margin-bottom: 0.25rem;
 }
 
-/* Left: role badge (desktop) */
+/* Left */
 .parkgo-navbar .navbar-left {
   flex: 1;
   min-width: 0;
   justify-content: flex-start;
 }
 
-/* Center: logo */
+/* Center logo */
 .parkgo-navbar .navbar-brand-center {
   position: absolute;
   left: 50%;
@@ -135,21 +147,26 @@
   height: var(--navbar-logo-size);
   width: var(--navbar-logo-size);
   object-fit: contain;
-  transition: transform 0.2s ease;
+  transition: all var(--transition-smooth);
+  filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.2));
 }
 
 .parkgo-navbar .navbar-brand:hover .navbar-logo {
-  transform: scale(1.05);
+  transform: scale(1.08);
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.35));
 }
 
 .parkgo-navbar .navbar-logo-fallback {
   font-size: calc(var(--navbar-logo-size) * 0.5);
-  color: var(--logo-blue);
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-/* Right: desktop links */
+/* Right */
 .parkgo-navbar .navbar-right {
   flex: 1;
   min-width: 0;
@@ -163,34 +180,53 @@
   color: var(--text-muted);
   background: var(--bg-elevated) !important;
   border: 1px solid var(--border-subtle);
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 0.85rem;
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-full);
 }
 
 .parkgo-navbar .parkgo-nav-link {
   color: var(--text-muted) !important;
   font-weight: 500;
-  padding: 0.5rem 1rem !important;
+  padding: 0.5rem 1.15rem !important;
   border-radius: var(--radius-md);
-  transition: color 0.2s, background 0.2s;
+  transition: all var(--transition-smooth);
+  position: relative;
 }
 
 .parkgo-navbar .parkgo-nav-link:hover {
   color: var(--text-primary) !important;
-  background: var(--nav-link-hover-bg);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .parkgo-navbar .parkgo-btn-signup {
-  background: linear-gradient(135deg, var(--logo-blue), var(--logo-blue-light)) !important;
+  background: var(--gradient-primary) !important;
   border: none !important;
-  padding: 0.5rem 1.25rem !important;
-  font-weight: 500;
+  padding: 0.5rem 1.35rem !important;
+  font-weight: 600;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 10px var(--glow-blue);
+  box-shadow: 0 2px 12px var(--glow-blue);
+  transition: all var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.parkgo-navbar .parkgo-btn-signup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
 }
 
 .parkgo-navbar .parkgo-btn-signup:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 4px 14px var(--glow-blue);
+  box-shadow: 0 4px 20px var(--glow-blue), 0 0 15px var(--glow-purple);
+  transform: translateY(-1px);
+}
+
+.parkgo-navbar .parkgo-btn-signup:hover::before {
+  opacity: 1;
 }
 
 .parkgo-navbar .parkgo-btn-logout {
@@ -200,12 +236,13 @@
   font-weight: 500;
   border-radius: var(--radius-md);
   background: transparent !important;
+  transition: all var(--transition-smooth);
 }
 
 .parkgo-navbar .parkgo-btn-logout:hover {
-  background: var(--nav-link-hover-bg) !important;
-  border-color: var(--logo-blue) !important;
-  color: var(--logo-blue-light) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #fca5a5 !important;
 }
 
 @media (max-width: 991.98px) {
@@ -224,13 +261,14 @@
   }
 }
 
-/* —— Landing (light) navbar —— */
+/* —— Landing (dark premium) navbar —— */
 .parkgo-navbar--landing {
   display: flex;
   flex-direction: column;
-  background: #ffffff !important;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  background: rgba(8, 12, 20, 0.9) !important;
+  backdrop-filter: var(--glass-blur-heavy);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
   min-height: 88px;
 }
 
@@ -239,7 +277,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0.65rem 1.25rem;
   min-height: 88px;
@@ -258,8 +296,8 @@
   align-items: center;
   gap: 0.5rem;
   text-decoration: none;
-  color: #0f172a;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
@@ -275,6 +313,8 @@
   max-width: min(100%, 420px);
   object-fit: contain;
   display: block;
+  filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.2));
+  transition: all var(--transition-smooth);
 }
 
 @media (max-width: 576px) {
@@ -285,7 +325,8 @@
 }
 
 .parkgo-landing-brand-logo-only:hover .parkgo-landing-logo-img {
-  opacity: 0.9;
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.35));
+  transform: scale(1.02);
 }
 
 .parkgo-landing-logo-fallback {
@@ -307,12 +348,12 @@
 }
 
 .parkgo-landing-brand:hover {
-  color: #2563eb;
+  color: var(--accent-blue);
 }
 
 .parkgo-landing-brand-icon {
   display: flex;
-  color: #2563eb;
+  color: var(--accent-blue);
 }
 
 .parkgo-landing-desktop {
@@ -321,58 +362,76 @@
 }
 
 .parkgo-landing-link {
-  color: #475569 !important;
+  color: var(--text-muted) !important;
   font-weight: 500;
   font-size: 0.9375rem;
   text-decoration: none;
-  padding: 0.35rem 0;
-  border-radius: 8px;
-  transition: color 0.2s;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-smooth);
 }
 
 .parkgo-landing-link:hover {
-  color: #2563eb !important;
+  color: var(--text-primary) !important;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .parkgo-landing-login {
   display: inline-flex;
   align-items: center;
-  padding: 0.5rem 1.25rem !important;
-  background: #2563eb !important;
+  padding: 0.55rem 1.5rem !important;
+  background: var(--gradient-primary) !important;
   color: #ffffff !important;
   font-weight: 600;
   font-size: 0.9375rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-decoration: none;
-  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.35);
-  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 15px var(--glow-blue);
+  transition: all var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.parkgo-landing-login::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
 }
 
 .parkgo-landing-login:hover {
-  background: #1d4ed8 !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 25px var(--glow-blue), 0 0 15px var(--glow-purple);
+  transform: translateY(-1px);
+}
+
+.parkgo-landing-login:hover::before {
+  opacity: 1;
 }
 
 .parkgo-landing-signup {
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   font-weight: 500;
   font-size: 0.9375rem;
   text-decoration: none;
-  padding: 0.35rem 0;
+  padding: 0.35rem 0.5rem;
+  transition: color var(--transition-fast);
 }
 
 .parkgo-landing-signup:hover {
-  color: #2563eb !important;
+  color: var(--text-primary) !important;
 }
 
 .parkgo-navbar-toggler--landing {
-  border-color: #e2e8f0 !important;
-  background: #f8fafc !important;
+  border-color: var(--border-subtle) !important;
+  background: var(--bg-elevated) !important;
+  backdrop-filter: var(--glass-blur);
 }
 
 .parkgo-navbar-toggler--landing span {
-  background: #475569 !important;
+  background: var(--text-muted) !important;
 }
 
 .parkgo-landing-mobile {
@@ -384,14 +443,15 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0 1.25rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  transition: max-height 0.35s ease, padding 0.35s ease;
+  background: rgba(8, 12, 20, 0.95);
+  backdrop-filter: var(--glass-blur-heavy);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), padding 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .parkgo-landing-mobile.show {
-  max-height: 200px;
-  padding: 1rem 1.25rem 1.25rem;
+  max-height: 220px;
+  padding: 1.25rem;
 }
 
 .parkgo-landing-mobile .parkgo-landing-link,
@@ -403,5 +463,5 @@
 }
 
 .parkgo-landing-mobile .parkgo-landing-login {
-  padding: 0.65rem 1rem !important;
+  padding: 0.7rem 1rem !important;
 }

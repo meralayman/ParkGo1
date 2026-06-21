@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import WelcomeHeroIllustration from '../components/WelcomeHeroIllustration';
@@ -12,8 +13,8 @@ const LANDING_FEATURES = [
     icon: (
       <span className="welcome-feature-icon-wrap" aria-hidden>
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="20" cy="20" r="20" fill="#eff6ff" />
-          <circle cx="27" cy="13" r="6" fill="#2563eb" />
+          <circle cx="20" cy="20" r="20" fill="rgba(59,130,246,0.12)" />
+          <circle cx="27" cy="13" r="6" fill="#60a5fa" />
           <text
             x="27"
             y="16"
@@ -27,11 +28,11 @@ const LANDING_FEATURES = [
           </text>
           <path
             d="M11 25h18v-4.5l-1.8-4.5H12.8L11 20.5V25z"
-            stroke="#2563eb"
+            stroke="#60a5fa"
             strokeWidth="1.5"
             strokeLinejoin="round"
           />
-          <path d="M13 25v2M27 25v2" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M13 25v2M27 25v2" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </span>
     ),
@@ -42,10 +43,10 @@ const LANDING_FEATURES = [
     icon: (
       <span className="welcome-feature-icon-wrap" aria-hidden>
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="20" cy="20" r="20" fill="#eff6ff" />
+          <circle cx="20" cy="20" r="20" fill="rgba(59,130,246,0.12)" />
           <path
             d="M12 14h6v6h-6v-6zm10 0h6v6h-6v-6zm-10 10h6v6h-6v-6zm10 0h6v6h-6v-6z"
-            stroke="#2563eb"
+            stroke="#60a5fa"
             strokeWidth="1.25"
           />
         </svg>
@@ -73,7 +74,12 @@ const WelcomePage = () => {
       <Navbar showAuthLinks hideLotDesignerLink />
       <main className="welcome-main">
         <section className="welcome-hero">
-          <div className="welcome-hero-copy">
+          <motion.div
+            className="welcome-hero-copy"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
             <h1 className="welcome-headline">Find and Manage Parking Effortlessly</h1>
             <p className="welcome-subhead">
               Book, pay, and navigate to your perfect parking spot, or design your own efficient parking layout in minutes.
@@ -111,25 +117,45 @@ const WelcomePage = () => {
                 </p>
               </div>
             </div>
-          </div>
-          <div className="welcome-hero-visual">
+          </motion.div>
+          <motion.div
+            className="welcome-hero-visual"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
             <WelcomeHeroIllustration />
-          </div>
+          </motion.div>
         </section>
 
         <section className="welcome-features" id="features">
           <div className="welcome-features-grid">
             {LANDING_FEATURES.map((f, i) => (
-              <div key={i} className="welcome-feature-card">
+              <motion.div
+                key={i}
+                className="welcome-feature-card"
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.6, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -6, transition: { duration: 0.25 } }}
+              >
                 {f.icon}
                 <h3 className="welcome-feature-title">{f.title}</h3>
                 <p className="welcome-feature-desc">{f.desc}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </section>
 
-        <section className="welcome-video-section" aria-labelledby="welcome-video-heading">
+        <motion.section
+          className="welcome-video-section"
+          aria-labelledby="welcome-video-heading"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        >
           <h2 id="welcome-video-heading" className="welcome-video-title">
             See ParkGO in action
           </h2>
@@ -144,7 +170,7 @@ const WelcomePage = () => {
               Your browser does not support the video tag.
             </video>
           </div>
-        </section>
+        </motion.section>
       </main>
     </div>
   );

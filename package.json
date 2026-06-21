@@ -9,6 +9,7 @@
     "@react-three/drei": "^9.96.0",
     "@react-three/fiber": "^8.15.16",
     "bootstrap": "^5.3.8",
+    "framer-motion": "^11.18.2",
     "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "qrcode.react": "^4.2.0",
