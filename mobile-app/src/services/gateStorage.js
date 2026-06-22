@@ -26,18 +26,25 @@ export const gateStorage = {
   },
 
   async addScanRecord(preview, action) {
+    const bookingId = preview?.reservation?.id || '?';
+    const act = action || preview?.nextAction || '?';
     const record = {
       id: Date.now().toString(),
-      bookingId: preview?.reservation?.id || '?',
+      bookingId,
       slotNo: preview?.reservation?.slot_no || '?',
       status: preview?.reservation?.status || '?',
       userId: preview?.reservation?.user_id || '?',
-      action: action || preview?.nextAction || '?',
+      action: act,
       scannedAt: new Date().toISOString(),
     };
     try {
       const raw = await AsyncStorage.getItem(HISTORY_KEY);
       const history = raw ? JSON.parse(raw) : [];
+      const isDuplicate = history.length > 0
+        && history[0].bookingId === bookingId
+        && history[0].action === act
+        && (Date.now() - new Date(history[0].scannedAt).getTime()) < 30000;
+      if (isDuplicate) return;
       history.unshift(record);
       const trimmed = history.slice(0, 100);
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
