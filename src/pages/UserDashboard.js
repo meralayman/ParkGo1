@@ -121,14 +121,6 @@ const UserDashboard = () => {
       window.removeEventListener(PARKGO_RESERVATIONS_CHANGED, onReservationsChanged);
   }, [user?.id]);
 
-  /** Drop pending selection if that slot is gone or no longer free */
-  useEffect(() => {
-    if (!pendingSlotNo || !slots.length) return;
-    const row = slots.find((s) => s.slot_no === pendingSlotNo);
-    if (!row || Number(row.state) !== 0) {
-      clearPendingSlot();
-    }
-  }, [slots, pendingSlotNo]);
 
   /** Demand hint for popup modal (same times as inline booking panel). */
   useEffect(() => {
@@ -226,16 +218,10 @@ const UserDashboard = () => {
     });
   };
 
-  /** Live map state for the selected bay (summary next to chip). */
   const pendingSlotLive = useMemo(() => {
     if (!pendingSlotNo) return null;
-    const row = slots.find((s) => String(s.slot_no) === String(pendingSlotNo));
-    if (!row) return { label: 'Unknown', tone: 'muted' };
-    const n = Number(row.state);
-    if (n === 0) return { label: 'Available', tone: 'available' };
-    if (n === 2) return { label: 'Reserved', tone: 'reserved' };
-    return { label: 'Occupied', tone: 'occupied' };
-  }, [pendingSlotNo, slots]);
+    return { label: 'Available', tone: 'available' };
+  }, [pendingSlotNo]);
 
   const loadSlots = async () => {
     setSlotsLoading(true);
@@ -348,7 +334,6 @@ const UserDashboard = () => {
             startTime: startTime.toISOString(),
             endTime: endTime.toISOString(),
             totalAmount,
-            slotNo: pendingSlotNo || undefined,
             paymentAttempt: Date.now(),
           },
         },
@@ -364,7 +349,6 @@ const UserDashboard = () => {
         endTime: endTime.toISOString(),
         totalAmount,
         paymentMethod: 'cash',
-        slotNo: pendingSlotNo || undefined,
       });
 
       if (!result.ok) {

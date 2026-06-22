@@ -37,7 +37,7 @@ function AppRoutes() {
         <Route path="/login/admin" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-        <Route path="/payment/return" element={<ProtectedRoute><PaymentReturnPage /></ProtectedRoute>} />
+        <Route path="/payment/return" element={<PaymentReturnPage />} />
         <Route
           path="/admin/*"
           element={

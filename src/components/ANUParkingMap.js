@@ -61,6 +61,8 @@ export default function ANUParkingMap({ onSlotConfirm }) {
   const handleConfirm = useCallback(() => {
     if (selectedArea && selectedSlot && onSlotConfirm) {
       onSlotConfirm(selectedArea, selectedSlot);
+      setSelectedArea(null);
+      setSelectedSlot(null);
     }
   }, [selectedArea, selectedSlot, onSlotConfirm]);
 

@@ -131,6 +131,8 @@ export function ANUParkingMapScreen({ navigation }) {
     try {
       await AsyncStorage.setItem(PARKGO_PENDING_SLOT_KEY, selectedSlot);
     } catch { /* ignore */ }
+    setSelectedArea(null);
+    setSelectedSlot(null);
     navigation.navigate('Login');
   }, [selectedSlot, navigation]);
 

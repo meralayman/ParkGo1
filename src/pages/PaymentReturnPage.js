@@ -76,7 +76,7 @@ export default function PaymentReturnPage() {
         endTime: pending.endTime,
         totalAmount: pending.totalAmount,
         paymentMethod: "card",
-        slotNo: pending.slotNo,
+        slotNo: undefined,
       });
       sessionStorage.removeItem(STORAGE_KEY);
       try {
@@ -116,14 +116,13 @@ export default function PaymentReturnPage() {
       params.get("error_occured") === "True";
     if (failed) {
       setCompleted("failed");
-      sessionStorage.removeItem(STORAGE_KEY);
       const hint = paymobFailureHint(params);
       setMsg(
         hint
-          ? `Payment did not complete. ${hint} Try again from the dashboard, or use Paymob test cards if you are in test mode.`
-          : "Payment failed or was cancelled (Paymob reported success=false). Try again from the dashboard; in test mode use Paymob-approved test cards from your Accept dashboard."
+          ? `Payment did not complete. ${hint}`
+          : "Payment failed or was cancelled."
       );
-      setCanRetry(false);
+      setCanRetry(true);
       return;
     }
     finalize();
@@ -146,9 +145,9 @@ export default function PaymentReturnPage() {
           ) : (
             <p className="auth-subtitle">{msg}</p>
           )}
-          {canRetry && (
-            <button type="button" className="auth-button" onClick={finalize}>
-              Try finalize again
+          {canRetry && completed !== "success" && (
+            <button type="button" className="auth-button" onClick={() => navigate("/user")}>
+              Try again
             </button>
           )}
           {completed === "success" && (
@@ -166,12 +165,12 @@ export default function PaymentReturnPage() {
               Go to dashboard now
             </button>
           )}
-          {(completed !== "success" || canRetry) && (
+          {completed !== "success" && (
             <button
               type="button"
-              className={canRetry ? "btn btn-secondary mt-3 w-100" : "auth-button"}
+              className="btn btn-secondary mt-3 w-100"
               onClick={() => navigate("/user")}
-              disabled={completed === "pending" && !canRetry}
+              disabled={completed === "pending"}
             >
               Back to dashboard
             </button>

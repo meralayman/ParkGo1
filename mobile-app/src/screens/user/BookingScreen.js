@@ -164,7 +164,6 @@ export function BookingScreen({ navigation }) {
         startTime,
         endTime,
         paymentMethod,
-        slotNo: selectedSlot,
       });
       const reservation = data?.reservation || null;
       const qrJwt = data?.qrJwt ?? reservation?.qrJwt ?? reservation?.qr_jwt ?? null;

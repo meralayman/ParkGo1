@@ -11,7 +11,7 @@ import { Screen } from '../../components/Screen';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
-import { AlexandriaParkingGrid } from '../../components/AlexandriaParkingGrid';
+import { ANUParkingMapInline } from '../../components/ANUParkingMapInline';
 import { DashboardMasthead } from '../../components/DashboardMasthead';
 import { SectionTitle, SectionHint, HintGreen } from '../../components/SectionTitle';
 import { Colors } from '../../utils/colors';
@@ -120,28 +120,15 @@ export function UserDashboardScreen({ navigation }) {
             <SectionHint>
               <Text style={{ color: Colors.muted, fontSize: 15, lineHeight: 22 }}>
                 <Text style={{ fontWeight: '700', color: Colors.text }}>{LOT_NAME}</Text>
-                {' — tap a '}
-                <HintGreen>green</HintGreen>
-                {' bay, then open the Booking tab to set your time.'}
+                {' — select a parking area, then tap a slot and open the Booking tab.'}
               </Text>
             </SectionHint>
           </SectionTitle>
 
-          {loading && slots.length === 0 ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <ActivityIndicator color={Colors.logoBlueLight} />
-              <Text style={{ color: Colors.muted, marginTop: 8 }}>Loading slots…</Text>
-            </View>
-          ) : slots.length === 0 ? (
-            <Text style={{ color: Colors.muted }}>No slots available</Text>
-          ) : (
-            <AlexandriaParkingGrid
-              slots={slots}
-              selectedSlotNo={null}
-              onSlotPress={(slotNo) => goBookWithSlot(slotNo)}
-              showLegend
-            />
-          )}
+          <ANUParkingMapInline
+            selectedSlot={null}
+            onSlotSelect={(slotNo) => goBookWithSlot(slotNo)}
+          />
         </Card>
 
         <Card>
