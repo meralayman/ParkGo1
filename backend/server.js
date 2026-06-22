@@ -291,11 +291,38 @@ async function ensureLateFeeColumns(pool) {
   );
 }
 
+async function ensureSlotNoVarchar(pool) {
+  const col = await pool.query(`
+    SELECT data_type FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reservations' AND column_name = 'slot_no'
+  `);
+  if (col.rowCount === 0) return;
+  const dtype = String(col.rows[0].data_type).toLowerCase();
+  if (dtype.includes("char") || dtype === "text") return;
+  console.log(`[ParkGo] reservations.slot_no is ${dtype} — converting to VARCHAR(50)…`);
+  await pool.query(`ALTER TABLE reservations ALTER COLUMN slot_no TYPE VARCHAR(50) USING slot_no::text`);
+  console.log("[ParkGo] reservations.slot_no converted to VARCHAR(50).");
+}
+
 async function ensureZoneSlots(pool) {
+  await ensureSlotNoVarchar(pool);
+
   const tbl = await pool.query(
     `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='parking_slots'`
   );
   if (tbl.rowCount === 0) return;
+
+  const pCol = await pool.query(`
+    SELECT data_type FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'parking_slots' AND column_name = 'slot_no'
+  `);
+  if (pCol.rowCount > 0) {
+    const pType = String(pCol.rows[0].data_type).toLowerCase();
+    if (!pType.includes("char") && pType !== "text") {
+      console.log(`[ParkGo] parking_slots.slot_no is ${pType} — converting to VARCHAR(50)…`);
+      await pool.query(`ALTER TABLE parking_slots ALTER COLUMN slot_no TYPE VARCHAR(50) USING slot_no::text`);
+    }
+  }
 
   const zoneCount = await pool.query(
     `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no ~ '^[A-Da-d]\\d+$'`
