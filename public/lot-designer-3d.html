@@ -175,6 +175,100 @@
 
     .hidden { display: none; }
 
+    /* ─── Inquiry Form ─── */
+    .inquiry-section {
+      margin-top: 8px;
+      animation: inquiryFadeIn 0.5s ease;
+    }
+
+    @keyframes inquiryFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .inquiry-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 16px 0;
+    }
+
+    .inquiry-heading {
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      color: var(--text-primary) !important;
+      text-transform: none !important;
+      letter-spacing: -0.01em !important;
+      margin-bottom: 6px !important;
+    }
+
+    .inquiry-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .inquiry-form textarea {
+      width: 100%;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .inquiry-form textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .inquiry-submit-btn {
+      background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+      margin-top: 4px;
+    }
+
+    .inquiry-submit-btn:hover {
+      background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+    }
+
+    .inquiry-success {
+      text-align: center;
+      padding: 20px 12px;
+      animation: inquiryFadeIn 0.4s ease;
+    }
+
+    .inquiry-success-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    .inquiry-success-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .inquiry-success-msg {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
     .notch-grid {
       display: grid;
       gap: 10px;
@@ -436,6 +530,49 @@
           Left mouse = rotate<br>
           Mouse wheel = zoom<br>
           Right mouse = move view
+        </div>
+
+        <!-- Inquiry Form — shown after layout is generated -->
+        <div id="inquirySection" class="inquiry-section hidden">
+          <div class="inquiry-divider"></div>
+          <h3 class="inquiry-heading">Interested in this layout?</h3>
+          <p class="inquiry-desc">
+            Submit your details and our team will review your parking layout request and get back to you.
+          </p>
+
+          <form id="inquiryForm" class="inquiry-form" onsubmit="return false;">
+            <div class="field">
+              <label for="inqName">Full Name *</label>
+              <input id="inqName" type="text" placeholder="e.g. Ahmed Hassan" required />
+            </div>
+            <div class="field">
+              <label for="inqEmail">Email Address *</label>
+              <input id="inqEmail" type="email" placeholder="you@example.com" required />
+            </div>
+            <div class="field">
+              <label for="inqPhone">Phone Number</label>
+              <input id="inqPhone" type="tel" placeholder="+20 1xx xxx xxxx" />
+            </div>
+            <div class="field">
+              <label for="inqCompany">Company / Organization</label>
+              <input id="inqCompany" type="text" placeholder="e.g. Alexandria National University" />
+            </div>
+            <div class="field">
+              <label for="inqMessage">Additional Notes</label>
+              <textarea id="inqMessage" rows="3" placeholder="Any specific requirements or questions..."></textarea>
+            </div>
+            <button type="button" class="btn inquiry-submit-btn" id="inquirySubmitBtn">
+              Submit Request
+            </button>
+          </form>
+
+          <div id="inquirySuccess" class="inquiry-success hidden">
+            <div class="inquiry-success-icon">✓</div>
+            <h4 class="inquiry-success-title">Request Submitted</h4>
+            <p class="inquiry-success-msg">
+              Thank you! Your parking layout request has been received. Our team will review it and contact you shortly.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -2429,7 +2566,12 @@
     }
 
     document.getElementById("terrainType").addEventListener("change", updateCustomNotchFields);
-    document.getElementById("generateBtn").addEventListener("click", generateLayout);
+    document.getElementById("generateBtn").addEventListener("click", () => {
+      generateLayout();
+      document.getElementById("inquirySection").classList.remove("hidden");
+      document.getElementById("inquiryForm").classList.remove("hidden");
+      document.getElementById("inquirySuccess").classList.add("hidden");
+    });
     document.getElementById("resetViewBtn").addEventListener("click", setDefaultView);
     document.getElementById("topViewBtn").addEventListener("click", setTopView);
     document.getElementById("addNotchBtn").addEventListener("click", addNotchCard);
@@ -2451,6 +2593,22 @@
       renderer.render(scene, camera);
     }
     animate();
+
+    document.getElementById("inquirySubmitBtn").addEventListener("click", () => {
+      const name = document.getElementById("inqName").value.trim();
+      const email = document.getElementById("inqEmail").value.trim();
+      if (!name || !email) {
+        alert("Please fill in your name and email address.");
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+      document.getElementById("inquiryForm").classList.add("hidden");
+      document.getElementById("inquirySuccess").classList.remove("hidden");
+    });
 
     window.addEventListener("resize", () => {
       camera.aspect = container.clientWidth / container.clientHeight;

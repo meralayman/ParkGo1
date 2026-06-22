@@ -1,0 +1,442 @@
+/* ─── ANU Parking Map ─── */
+
+.anu-map-root {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ─── Viewport (image) ─── */
+.anu-map-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-xl, 16px);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: #0f172a;
+}
+
+.anu-map-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes anuFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── Area Cards ─── */
+.anu-area-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+.anu-area-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--glass-bg, rgba(15, 23, 42, 0.55));
+  backdrop-filter: var(--glass-blur, blur(16px));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-left: 3px solid var(--card-accent, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-lg, 12px);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  text-align: left;
+}
+
+.anu-area-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-left-color: var(--card-accent);
+  background: rgba(30, 41, 59, 0.65);
+  transform: translateY(-3px);
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.anu-area-card:active {
+  transform: translateY(-1px);
+  transition-duration: 0.1s;
+}
+
+.anu-area-card__badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.anu-area-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.anu-area-card__name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+  letter-spacing: -0.01em;
+}
+
+.anu-area-card__slots {
+  font-size: 0.6875rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.anu-area-card__arrow {
+  color: var(--text-muted, #64748b);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  opacity: 0.5;
+}
+
+.anu-area-card:hover .anu-area-card__arrow {
+  transform: translateX(3px);
+  color: var(--text-primary, #f1f5f9);
+  opacity: 1;
+}
+
+/* ─── Detail Panel ─── */
+.anu-detail-panel {
+  background: var(--glass-bg, rgba(15, 23, 42, 0.6));
+  backdrop-filter: var(--glass-blur, blur(20px));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-xl, 16px);
+  padding: 1.5rem;
+  animation: anuSlideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes anuSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anu-detail-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.anu-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--logo-blue-light, #60a5fa);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 0.75rem;
+  transition: color var(--transition-fast, 0.15s);
+}
+
+.anu-back-btn:hover {
+  color: var(--accent-purple, #a78bfa);
+}
+
+.anu-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.anu-area-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+}
+
+.anu-detail-title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  letter-spacing: -0.025em;
+}
+
+.anu-detail-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* ─── Slot Selector ─── */
+.anu-slots-stats {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 0.5rem;
+}
+
+.anu-slots-stat--available strong {
+  color: #6ee7b7;
+}
+
+.anu-slots-stat--selected-info strong {
+  color: #93c5fd;
+}
+
+.anu-slots-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.anu-slots-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.anu-slots-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.anu-slots-swatch--available {
+  background: rgba(16, 185, 129, 0.35);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.anu-slots-swatch--selected {
+  background: rgba(59, 130, 246, 0.45);
+  border-color: var(--accent-blue, #3b82f6);
+}
+
+.anu-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.45rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.875rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.anu-slots-grid::-webkit-scrollbar {
+  width: 5px;
+}
+
+.anu-slots-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.anu-slots-grid::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+/* Slot buttons */
+.anu-slot {
+  min-height: 42px;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  background: transparent;
+  padding: 0;
+  letter-spacing: 0.02em;
+}
+
+.anu-slot--available {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: rgba(110, 231, 183, 0.85);
+}
+
+.anu-slot--available:hover {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.15);
+}
+
+.anu-slot--available:active {
+  transform: translateY(0);
+  transition-duration: 0.08s;
+}
+
+.anu-slot--selected {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #60a5fa;
+  color: #e0f2fe;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.3),
+    0 0 16px rgba(59, 130, 246, 0.2);
+  transform: scale(1.04);
+  animation: anuSlotPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes anuSlotPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 0 16px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4), 0 0 22px rgba(59, 130, 246, 0.25);
+  }
+}
+
+/* ─── Confirm Bar ─── */
+.anu-confirm-bar {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: rgba(59, 130, 246, 0.06);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  animation: anuFadeIn 0.3s ease-out;
+}
+
+.anu-confirm-msg {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.anu-confirm-msg strong {
+  color: #93c5fd;
+}
+
+.anu-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.5rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+  transition: all 0.25s ease;
+  letter-spacing: 0.01em;
+}
+
+.anu-confirm-btn:hover {
+  box-shadow:
+    0 6px 22px rgba(59, 130, 246, 0.4),
+    0 0 12px rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+}
+
+.anu-confirm-btn:active {
+  transform: translateY(0);
+  transition-duration: 0.08s;
+}
+
+/* ─── Responsive ─── */
+@media (min-width: 768px) {
+  .anu-slots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+    gap: 0.5rem;
+    max-height: 370px;
+  }
+
+  .anu-slot {
+    min-height: 48px;
+    font-size: 0.75rem;
+  }
+
+  .anu-detail-panel {
+    padding: 1.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .anu-map-root {
+    gap: 1rem;
+  }
+
+  .anu-area-cards {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .anu-slots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 0.35rem;
+    max-height: 260px;
+    padding: 0.625rem;
+  }
+
+  .anu-slot {
+    min-height: 36px;
+    font-size: 0.625rem;
+  }
+
+  .anu-detail-panel {
+    padding: 1rem;
+  }
+
+  .anu-confirm-bar {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .anu-confirm-btn {
+    width: 100%;
+  }
+}

@@ -4,13 +4,14 @@ import L from 'leaflet';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  ALEXANDRIA_LOT_PATH,
   EGYPT_MAP_CENTER,
   EGYPT_MAP_ZOOM,
   LOT_POSITION,
   LOT_NAME,
 } from '../constants/alexandriaLot';
 import './BookParkingMap.css';
+
+const ANU_MAP_PATH = '/parking/alexandria-national-university/map';
 
 const LOT_LAT_LNG = [LOT_POSITION.lat, LOT_POSITION.lng];
 const MAP_CENTER = [EGYPT_MAP_CENTER.lat, EGYPT_MAP_CENTER.lng];
@@ -56,7 +57,7 @@ function LotMarker({ icon }) {
         <div className="book-parking-map-popup">
           <h4 className="book-parking-map-popup__title">{LOT_NAME}</h4>
           <p className="book-parking-map-popup__line">Alexandria, Egypt</p>
-          <Link to={ALEXANDRIA_LOT_PATH} className="book-parking-map-popup__btn">
+          <Link to={ANU_MAP_PATH} className="book-parking-map-popup__btn">
             Select
           </Link>
         </div>

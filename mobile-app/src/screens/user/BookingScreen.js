@@ -8,7 +8,7 @@ import { Card } from '../../components/Card';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
-import { AlexandriaParkingGrid } from '../../components/AlexandriaParkingGrid';
+import { ANUParkingMapInline } from '../../components/ANUParkingMapInline';
 import { DashboardMasthead } from '../../components/DashboardMasthead';
 import { SectionTitle, SectionHint, HintGreen } from '../../components/SectionTitle';
 import { Colors } from '../../utils/colors';
@@ -201,30 +201,15 @@ export function BookingScreen({ navigation }) {
             <SectionHint>
               <Text style={{ color: Colors.muted, fontSize: 15, lineHeight: 22 }}>
                 <Text style={{ fontWeight: '700', color: Colors.text }}>{LOT_NAME}</Text>
-                {' — tap a '}
-                <HintGreen>green</HintGreen>
-                {' bay. Confirm date and time below after selecting a spot.'}
+                {' — select a parking area, then tap a slot.'}
               </Text>
             </SectionHint>
           </SectionTitle>
 
-          {loadingSlots ? (
-            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-              <ActivityIndicator color={Colors.logoBlueLight} />
-              <Text style={{ color: Colors.muted, marginTop: 8 }}>Loading slots…</Text>
-            </View>
-          ) : slotsError ? (
-            <Text style={{ color: Colors.danger }}>{slotsError}</Text>
-          ) : slots.length === 0 ? (
-            <Text style={{ color: Colors.muted }}>No slots available</Text>
-          ) : (
-            <AlexandriaParkingGrid
-              slots={slots}
-              selectedSlotNo={selectedSlot}
-              onSlotPress={onSelectSlot}
-              showLegend
-            />
-          )}
+          <ANUParkingMapInline
+            selectedSlot={selectedSlot}
+            onSlotSelect={onSelectSlot}
+          />
 
           <View
             style={{

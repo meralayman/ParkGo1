@@ -1,0 +1,67 @@
+/* ANU Parking Map Page */
+.anu-page {
+  min-height: 100vh;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  position: relative;
+}
+
+.anu-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--gradient-mesh);
+  pointer-events: none;
+}
+
+.anu-page-main {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+@media (min-width: 768px) {
+  .anu-page-main {
+    padding: 2.5rem 2rem 5rem;
+  }
+}
+
+.anu-page-breadcrumb {
+  margin-bottom: 1.5rem;
+}
+
+.anu-page-back {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--logo-blue-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.anu-page-back:hover {
+  color: var(--accent-purple);
+}
+
+.anu-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.anu-page-title {
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #f8fafc, #60a5fa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.anu-page-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0;
+}

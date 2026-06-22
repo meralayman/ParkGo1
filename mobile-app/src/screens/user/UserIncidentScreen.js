@@ -7,7 +7,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
 import { Colors } from '../../utils/colors';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../store/AuthContext';
 import { api } from '../../services/apiClient';
 import { getUserReservations } from '../../services/parkgo.service';
 
@@ -164,21 +164,24 @@ export function UserIncidentScreen() {
           </View>
 
           <View style={{ gap: 6 }}>
-            <Text style={{ color: Colors.muted, fontSize: 13, fontWeight: '600' }}>Reservation ID *</Text>
-            {activeReservations.length > 0 ? (
+            <Text style={{ color: Colors.muted, fontSize: 13, fontWeight: '600' }}>Reservation *</Text>
+            {reservations.length > 0 ? (
               <View style={{ gap: 6 }}>
-                <TextInput
-                  style={inputStyle}
-                  value={reservationId}
-                  onChangeText={setReservationId}
-                  placeholder="Enter booking ID"
-                  placeholderTextColor={Colors.muted}
-                  keyboardType="number-pad"
-                />
-                <Text style={{ color: Colors.muted, fontSize: 12 }}>
-                  Your active bookings:{' '}
-                  {activeReservations.map((r) => `#${r.id}`).join(', ')}
-                </Text>
+                {reservations.map((r) => {
+                  const isActive = String(r.id) === reservationId;
+                  const slot = r.slot_no || '?';
+                  const date = r.start_time ? new Date(r.start_time).toLocaleDateString() : '';
+                  const status = (r.status || '').replace('_', ' ');
+                  return (
+                    <Button
+                      key={r.id}
+                      title={`Slot ${slot} — ${date} (${status})`}
+                      tone={isActive ? 'primary' : 'secondary'}
+                      size="sm"
+                      onPress={() => setReservationId(String(r.id))}
+                    />
+                  );
+                })}
               </View>
             ) : (
               <TextInput
@@ -187,7 +190,6 @@ export function UserIncidentScreen() {
                 onChangeText={setReservationId}
                 placeholder="Enter your booking ID"
                 placeholderTextColor={Colors.muted}
-                keyboardType="number-pad"
               />
             )}
           </View>

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import BookParkingMap from '../components/BookParkingMap';
-import { ALEXANDRIA_LOT_PATH, LOT_NAME } from '../constants/alexandriaLot';
+import { LOT_NAME } from '../constants/alexandriaLot';
 import './BookParkingPage.css';
+
+const ANU_MAP_PATH = '/parking/alexandria-national-university/map';
 
 const SIDE_CARDS = [
   {
@@ -75,7 +77,7 @@ const BookParkingPage = () => {
               {SIDE_CARDS.map((card) => (
                 <Link
                   key={card.id}
-                  to={ALEXANDRIA_LOT_PATH}
+                  to={ANU_MAP_PATH}
                   className="book-parking-mini-card book-parking-mini-card--link"
                 >
                   <IconGrad />

@@ -148,29 +148,6 @@ const WelcomePage = () => {
           </div>
         </section>
 
-        <motion.section
-          className="welcome-video-section"
-          aria-labelledby="welcome-video-heading"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <h2 id="welcome-video-heading" className="welcome-video-title">
-            See ParkGO in action
-          </h2>
-          <div className="welcome-video-frame">
-            <video
-              className="welcome-video"
-              src={`${process.env.PUBLIC_URL || ''}/parkgo-demo.mp4`}
-              controls
-              playsInline
-              preload="metadata"
-            >
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        </motion.section>
       </main>
     </div>
   );

@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import DemandGuidanceBanner from '../components/DemandGuidanceBanner';
 import SmartParkingAssistant from '../components/SmartParkingAssistant';
 import ParkingRulesSection from '../components/ParkingRulesSection';
-import AlexandriaParkingGrid from '../components/AlexandriaParkingGrid';
+import ANUParkingMap from '../components/ANUParkingMap';
 import { LOT_NAME } from '../constants/alexandriaLot';
 import { PARKGO_PENDING_SLOT_KEY } from '../constants/pendingSlot';
 import { formatEgp } from '../utils/formatEgp';
@@ -638,42 +638,19 @@ const UserDashboard = () => {
         <div className="dashboard-section parking-overview-dashboard dashboard-section--map dashboard-section--featured user-dash-map-first">
           <h2 id="user-dash-map-heading">Parking map — choose your bay</h2>
           <p className="parking-overview-hint">
-            <strong>{LOT_NAME}</strong> — tap a <strong className="user-dash-hl-available">green</strong> bay. You get
-            instant confirmation below the map before scheduling date and time.
+            <strong>{LOT_NAME}</strong> — select a parking area, then tap a slot. You get
+            instant confirmation before scheduling date and time.
           </p>
 
-          {slotsLoading ? (
-            <p className="empty-state">Loading slots...</p>
-          ) : slotsError ? (
-            <p className="empty-state slots-error">{slotsError}</p>
-          ) : slots.length === 0 ? (
-            <p className="empty-state">No slots available</p>
-          ) : (
-            <AlexandriaParkingGrid
-              slots={slots}
-              selectedSlotNo={pendingSlotNo}
-              onSlotClick={(slotNo) => {
-                setPendingSlotNo(slotNo);
-                try {
-                  localStorage.setItem(PARKGO_PENDING_SLOT_KEY, slotNo);
-                } catch {
-                  /* ignore */
-                }
-              }}
-              showLegend
-            />
-          )}
-
-          {!slotsLoading && !slotsError && slots.length > 0 && pendingSlotNo && (
-            <div className="user-dash-slot-picker-card user-dash-slot-picker-card--enter" aria-live="polite">
-              <div className="user-dash-slot-picker-card__main">
-                <p className="user-dash-slot-picker-card__title">Slot {pendingSlotNo} selected</p>
-              </div>
-              <button type="button" className="btn btn-primary user-dash-slot-picker-card__cta" onClick={scrollToBookingPanel}>
-                Continue<span aria-hidden> →</span>
-              </button>
-            </div>
-          )}
+          <ANUParkingMap
+            onSlotConfirm={(area, slotNo) => {
+              setPendingSlotNo(slotNo);
+              try {
+                localStorage.setItem(PARKGO_PENDING_SLOT_KEY, slotNo);
+              } catch { /* ignore */ }
+              scrollToBookingPanel();
+            }}
+          />
         </div>
 
         <div id="user-dash-booking-panel" className="dashboard-section dashboard-section--booking-controls user-dash-booking-card">

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
 import Navbar from '../components/Navbar';
 import { submitIncident } from '../api/incidentApi';
+import { fetchUserReservations } from '../api/bookingApi';
 import './Dashboard.css';
 
 const ReportIncidentPage = () => {
@@ -17,6 +18,7 @@ const ReportIncidentPage = () => {
   const [description, setDescription] = useState('');
   const [photo, setPhoto] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userReservations, setUserReservations] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -28,6 +30,18 @@ const ReportIncidentPage = () => {
     setMobile((prev) => (prev.trim() ? prev : phone));
   }, [user]);
 
+  const loadReservations = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const result = await fetchUserReservations(user.id);
+      if (result.ok && Array.isArray(result.reservations)) {
+        setUserReservations(result.reservations);
+      }
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  useEffect(() => { loadReservations(); }, [loadReservations]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const name = fullName.trim();
@@ -37,18 +51,13 @@ const ReportIncidentPage = () => {
 
     if (!name || !phone || !bookingIdRaw || !text) {
       toast(
-        'Please fill in your full name, mobile number, reservation ID, and a description of what happened.',
+        'Please fill in your full name, mobile number, select a reservation, and describe what happened.',
         { variant: 'error' }
       );
       return;
     }
 
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const trimmedBooking = bookingIdRaw.trim();
-    if (!uuidRe.test(trimmedBooking)) {
-      toast('Reservation ID must be the booking UUID shown on your dashboard or QR.', { variant: 'error' });
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -83,7 +92,7 @@ const ReportIncidentPage = () => {
       <header className="dashboard-header">
         <div>
           <h1>Report an incident</h1>
-          <p>Tell us what happened. Include the booking ID from your reservation or QR. Optional photo helps us review.</p>
+          <p>Tell us what happened. Select the related reservation and describe the issue. Optional photo helps us review.</p>
         </div>
       </header>
 
@@ -120,20 +129,32 @@ const ReportIncidentPage = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="incident-reservation-id">Reservation ID</label>
-              <input
+              <label htmlFor="incident-reservation-id">Reservation</label>
+              <select
                 id="incident-reservation-id"
                 name="reservationId"
-                type="text"
-                autoComplete="off"
                 value={reservationId}
                 onChange={(e) => setReservationId(e.target.value)}
-                placeholder="Booking ID from your dashboard or QR"
                 required
-              />
-              <p className="form-hint" style={{ marginBottom: 0, marginTop: 8 }}>
-                Required — paste the booking UUID shown on your reservation or QR.
-              </p>
+              >
+                <option value="">— Select a reservation —</option>
+                {userReservations.map((r) => {
+                  const slot = r.slot_no || r.slotNo || '?';
+                  const date = r.start_time || r.startTime || '';
+                  const label = date ? `${slot} — ${new Date(date).toLocaleDateString()}` : `Slot ${slot}`;
+                  const id = r.id || r.reservation_id || '';
+                  return (
+                    <option key={id} value={id}>
+                      {label} ({(r.status || 'unknown').replace('_', ' ')})
+                    </option>
+                  );
+                })}
+              </select>
+              {userReservations.length === 0 && (
+                <p className="form-hint" style={{ marginBottom: 0, marginTop: 8 }}>
+                  No reservations found. You can still type a reservation ID manually below.
+                </p>
+              )}
             </div>
 
             <div className="form-group">

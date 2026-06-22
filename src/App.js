@@ -6,6 +6,7 @@ import { NotifierProvider } from './context/NotifierContext';
 import WelcomePage from './pages/WelcomePage';
 import BookParkingPage from './pages/BookParkingPage';
 import ParkingSlotsPage from './pages/ParkingSlotsPage';
+import ANUParkingMapPage from './pages/ANUParkingMapPage';
 import SmartLayoutDesignerPage from './pages/SmartLayoutDesignerPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -29,6 +30,7 @@ function AppRoutes() {
         <Route path="/" element={<WelcomePage />} />
         <Route path="/book-parking" element={<BookParkingPage />} />
         <Route path="/book-parking/alexandria-national-university" element={<ParkingSlotsPage />} />
+        <Route path="/parking/alexandria-national-university/map" element={<ANUParkingMapPage />} />
         <Route path="/lot-designer" element={<SmartLayoutDesignerPage />} />
         <Route path="/smart-layout" element={<Navigate to="/lot-designer" replace />} />
         <Route path="/login" element={<LoginPage />} />

@@ -89,7 +89,7 @@ export function BookParkingScreen({ navigation }) {
               </Text>
             </View>
 
-            <Pressable onPress={() => navigation.navigate('AlexandriaSlots')}>
+            <Pressable onPress={() => navigation.navigate('ANUParkingMap')}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <CardIcon />
                 <View style={{ flex: 1 }}>
@@ -162,7 +162,7 @@ export function BookParkingScreen({ navigation }) {
                 description="Alexandria, Egypt"
                 onPress={() => {
                   flyToLot();
-                  navigation.navigate('AlexandriaSlots');
+                  navigation.navigate('ANUParkingMap');
                 }}
               />
             </MapView>
