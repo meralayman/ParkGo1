@@ -19,6 +19,7 @@ import GatekeeperDashboard from './pages/GatekeeperDashboard';
 import ReportIncidentGatekeeperPage from './pages/ReportIncidentGatekeeperPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Chatbot from './components/Chatbot';
+import { useAuth } from './context/AuthContext';
 import './App.css';
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
@@ -79,9 +80,15 @@ function AppRoutes() {
           }
         />
       </Routes>
-      <Chatbot />
+      <ChatbotGuard />
     </div>
   );
+}
+
+function ChatbotGuard() {
+  const { user } = useAuth();
+  if (user?.role === 'admin') return null;
+  return <Chatbot />;
 }
 
 function App() {

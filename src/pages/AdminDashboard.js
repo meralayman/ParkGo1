@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
 import Navbar from '../components/Navbar';
 import './Dashboard.css';
 import { formatEgp } from '../utils/formatEgp';
+import { sortSlotsForAlexandriaGrid } from '../utils/slotSorting';
 
 import { API_BASE } from '../config/apiOrigin';
 import {
@@ -21,6 +22,14 @@ import {
   updateAdminSlot,
 } from '../api/adminApi';
 import { fetchSlots } from '../api/slotApi';
+
+const SLOT_STATE_LABELS = { 0: 'Available', 1: 'Occupied', 2: 'Reserved' };
+const SLOT_STATE_CLASSES = { 0: 'available', 1: 'occupied', 2: 'reserved' };
+
+function slotArea(slotNo) {
+  const m = String(slotNo || '').match(/^([A-Za-z])/);
+  return m ? m[1].toUpperCase() : '?';
+}
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -93,6 +102,9 @@ const AdminDashboard = () => {
   const [userHistoryLoading, setUserHistoryLoading] = useState(false);
   const [showAddSlotModal, setShowAddSlotModal] = useState(false);
   const [newSlotNo, setNewSlotNo] = useState('');
+  const [slotFilterText, setSlotFilterText] = useState('');
+  const [slotFilterArea, setSlotFilterArea] = useState('');
+  const [slotFilterState, setSlotFilterState] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -385,6 +397,36 @@ const AdminDashboard = () => {
     });
     setEditingAccount(null);
   };
+
+  const sortedSlots = useMemo(() => sortSlotsForAlexandriaGrid(slots), [slots]);
+
+  const slotAreas = useMemo(() => {
+    const set = new Set(sortedSlots.map((s) => slotArea(s.slot_no)));
+    return [...set].sort();
+  }, [sortedSlots]);
+
+  const filteredSlots = useMemo(() => {
+    let list = sortedSlots;
+    if (slotFilterText) {
+      const q = slotFilterText.toLowerCase();
+      list = list.filter((s) => String(s.slot_no).toLowerCase().includes(q));
+    }
+    if (slotFilterArea) {
+      list = list.filter((s) => slotArea(s.slot_no) === slotFilterArea);
+    }
+    if (slotFilterState !== '') {
+      const st = Number(slotFilterState);
+      list = list.filter((s) => Number(s.state) === st);
+    }
+    return list;
+  }, [sortedSlots, slotFilterText, slotFilterArea, slotFilterState]);
+
+  const slotStats = useMemo(() => ({
+    total: slots.length,
+    available: slots.filter((s) => Number(s.state) === 0).length,
+    occupied: slots.filter((s) => Number(s.state) === 1).length,
+    reserved: slots.filter((s) => Number(s.state) === 2).length,
+  }), [slots]);
 
   const paymentSummary = reservations.reduce(
     (acc, r) => {
@@ -711,57 +753,133 @@ const AdminDashboard = () => {
 
         {activeSection === 'slots' && (
           <div className="dashboard-section">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-              <h2 style={{ margin: 0 }}>Parking Overview</h2>
-              <button type="button" className="btn btn-primary" onClick={() => setShowAddSlotModal(true)}>
-                + Add Slot
-              </button>
+            <div className="admin-analytics-header" style={{ marginBottom: 16 }}>
+              <h2 style={{ margin: 0 }}>Parking Slots</h2>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={loadSlots} disabled={slotsLoading}>
+                  {slotsLoading ? 'Refreshing…' : 'Refresh'}
+                </button>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddSlotModal(true)}>
+                  + Add Slot
+                </button>
+              </div>
             </div>
-            {slotsLoading ? (
-              <p className="empty-state">Loading slots...</p>
+            <p className="parking-overview-hint" style={{ marginTop: 0 }}>
+              All parking bays across zones A–D. Use the filters to find specific slots.
+            </p>
+
+            {slotsLoading && slots.length === 0 ? (
+              <p className="empty-state">Loading slots…</p>
             ) : slots.length === 0 ? (
               <p className="empty-state">No slots found. Add one with the button above or check that the database has parking_slots.</p>
             ) : (
               <>
                 <div className="slots-stats-row">
                   <div className="slots-stat-card">
-                    <div className="slots-stat-circle slots-stat-total">{slots.length}</div>
-                    <span>{slots.length} Total spots</span>
+                    <div className="slots-stat-circle slots-stat-total">{slotStats.total}</div>
+                    <span>Total</span>
                   </div>
                   <div className="slots-stat-card">
-                    <div className="slots-stat-circle slots-stat-occupied">
-                      {slots.filter(s => Number(s.state) === 1).length}
-                    </div>
-                    <span>{slots.filter(s => Number(s.state) === 1).length} Occupied</span>
+                    <div className="slots-stat-circle slots-stat-available">{slotStats.available}</div>
+                    <span>Available</span>
                   </div>
                   <div className="slots-stat-card">
-                    <div className="slots-stat-circle slots-stat-available">
-                      {slots.filter(s => Number(s.state) === 0).length}
-                    </div>
-                    <span>{slots.filter(s => Number(s.state) === 0).length} Available</span>
+                    <div className="slots-stat-circle slots-stat-reserved">{slotStats.reserved}</div>
+                    <span>Reserved</span>
+                  </div>
+                  <div className="slots-stat-card">
+                    <div className="slots-stat-circle slots-stat-occupied">{slotStats.occupied}</div>
+                    <span>Occupied</span>
                   </div>
                 </div>
-                <div className="slots-grid parking-overview-grid admin-slots-grid">
-                  {slots.map((slot, idx) => (
-                    <div key={slot.slot_no} className={`slot-card slot-card-visual slot-card-admin slot-state-${['available', 'occupied', 'reserved'][Number(slot.state)] || 'available'}`}>
-                      <div className={`slot-car-icon ${Number(slot.state) === 0 ? 'slot-car-empty' : `slot-car-filled slot-car-${['blue', 'purple', 'teal', 'blue-light', 'indigo'][idx % 5]}`}`}>
-                        <svg viewBox="0 0 24 24" className="slot-car-svg" fill="currentColor">
-                          <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-                        </svg>
-                      </div>
-                      <span className="slot-label">Slot {slot.slot_no}</span>
-                      <select
-                        className="slot-state-select"
-                        value={slot.state}
-                        onChange={(e) => updateSlotState(slot.slot_no, parseInt(e.target.value, 10))}
-                      >
-                        <option value={0}>Available</option>
-                        <option value={1}>Occupied</option>
-                        <option value={2}>Reserved</option>
-                      </select>
-                    </div>
-                  ))}
+
+                <div className="admin-slot-filters" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
+                    <label htmlFor="admin-slot-search">Search slot</label>
+                    <input
+                      id="admin-slot-search"
+                      type="search"
+                      placeholder="e.g. A1, B12"
+                      value={slotFilterText}
+                      onChange={(e) => setSlotFilterText(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 120 }}>
+                    <label htmlFor="admin-slot-area">Area</label>
+                    <select id="admin-slot-area" value={slotFilterArea} onChange={(e) => setSlotFilterArea(e.target.value)}>
+                      <option value="">All areas</option>
+                      {slotAreas.map((a) => (
+                        <option key={a} value={a}>Zone {a}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 130 }}>
+                    <label htmlFor="admin-slot-status">Status</label>
+                    <select id="admin-slot-status" value={slotFilterState} onChange={(e) => setSlotFilterState(e.target.value)}>
+                      <option value="">All statuses</option>
+                      <option value="0">Available</option>
+                      <option value="1">Occupied</option>
+                      <option value="2">Reserved</option>
+                    </select>
+                  </div>
+                  {(slotFilterText || slotFilterArea || slotFilterState !== '') && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => { setSlotFilterText(''); setSlotFilterArea(''); setSlotFilterState(''); }}
+                    >
+                      Clear filters
+                    </button>
+                  )}
                 </div>
+
+                {filteredSlots.length === 0 ? (
+                  <p className="empty-state">No slots match your filters.</p>
+                ) : (
+                  <div className="table-container">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Slot ID</th>
+                          <th>Area</th>
+                          <th>Status</th>
+                          <th>Change status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSlots.map((slot) => {
+                          const st = Number(slot.state);
+                          return (
+                            <tr key={slot.slot_no}>
+                              <td><strong>{slot.slot_no}</strong></td>
+                              <td>Zone {slotArea(slot.slot_no)}</td>
+                              <td>
+                                <span className={`status-badge status-${SLOT_STATE_CLASSES[st] || 'available'}`}>
+                                  {SLOT_STATE_LABELS[st] || 'Unknown'}
+                                </span>
+                              </td>
+                              <td>
+                                <select
+                                  className="slot-state-select"
+                                  value={slot.state}
+                                  onChange={(e) => updateSlotState(slot.slot_no, parseInt(e.target.value, 10))}
+                                >
+                                  <option value={0}>Available</option>
+                                  <option value={1}>Occupied</option>
+                                  <option value={2}>Reserved</option>
+                                </select>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <p className="parking-overview-hint" style={{ marginTop: 8 }}>
+                      Showing {filteredSlots.length} of {slots.length} slots
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>

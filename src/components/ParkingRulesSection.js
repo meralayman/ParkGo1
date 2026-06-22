@@ -2,6 +2,7 @@ import React from 'react';
 import './ParkingRulesSection.css';
 
 const RULES = [
+  'Operating hours: 08:00 AM – 06:00 PM only',
   'No double parking',
   'Keep QR ready',
   'Follow time limits',

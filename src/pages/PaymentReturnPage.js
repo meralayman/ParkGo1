@@ -76,7 +76,7 @@ export default function PaymentReturnPage() {
         endTime: pending.endTime,
         totalAmount: pending.totalAmount,
         paymentMethod: "card",
-        slotNo: undefined,
+        slotNo: pending.slotNo,
       });
       sessionStorage.removeItem(STORAGE_KEY);
       try {

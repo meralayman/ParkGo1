@@ -14,6 +14,7 @@ import { useAuth } from '../../store/AuthContext';
 import { createReservation, getSlots } from '../../services/parkgo.service';
 import { bookingStorage } from '../../services/bookingStorage';
 import { PARKGO_PENDING_SLOT_KEY } from '../../constants/pendingSlot';
+import { ANU_HOURS_LABEL, validateBookingHours, maxDurationForStartTime } from '../../constants/operatingHours';
 
 function isIsoDate(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
@@ -136,8 +137,14 @@ export function BookingScreen({ navigation }) {
   const duration = useMemo(() => {
     const n = Number(String(durationHours || '').trim());
     if (!Number.isFinite(n) || n <= 0) return 1;
-    return Math.min(24, Math.max(1, n));
-  }, [durationHours]);
+    const cap = maxDurationForStartTime(time);
+    return Math.min(cap, Math.max(1, n));
+  }, [durationHours, time]);
+
+  const computedMaxDuration = useMemo(
+    () => maxDurationForStartTime(time),
+    [time]
+  );
 
   const canSubmit = Boolean(user?.id) && Boolean(selectedSlot) && Boolean(startDateTime);
 
@@ -147,6 +154,13 @@ export function BookingScreen({ navigation }) {
       setError('Select an available parking slot and enter a valid date/time.');
       return;
     }
+
+    const hoursCheck = validateBookingHours(time, duration);
+    if (!hoursCheck.ok) {
+      setError(hoursCheck.error);
+      return;
+    }
+
     setCreating(true);
     try {
       const startTime = startDateTime.toISOString();
@@ -236,10 +250,13 @@ export function BookingScreen({ navigation }) {
 
       <Card>
         <Text style={{ color: Colors.text, fontWeight: '900' }}>Arrival details</Text>
+        <Text style={{ color: Colors.muted, fontSize: 13, marginBottom: 4 }}>
+          ANU parking hours: <Text style={{ fontWeight: '700', color: Colors.text }}>{ANU_HOURS_LABEL}</Text>
+        </Text>
         <TextField label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-05-06" />
-        <TextField label="Start time (HH:MM)" value={time} onChangeText={setTime} placeholder="14:30" />
+        <TextField label="Start time (HH:MM, 08:00–17:00)" value={time} onChangeText={setTime} placeholder="09:00" />
         <TextField
-          label="Duration (hours)"
+          label={`Duration (hours, max ${computedMaxDuration})`}
           value={String(durationHours)}
           onChangeText={setDurationHours}
           placeholder="1"

@@ -27,6 +27,13 @@ import {
   CHECK_IN_DEADLINE_MINUTES,
   CHECK_IN_WARNING_LEAD_MINUTES,
 } from '../constants/checkInDeadline';
+import {
+  ANU_OPEN_HOUR,
+  ANU_CLOSE_HOUR,
+  ANU_HOURS_LABEL,
+  validateBookingHours,
+  maxDurationForStartTime,
+} from '../constants/operatingHours';
 import { tieredBookingTotalEgp, extraHourChargeEgp } from '../utils/parkingPricing';
 import { useParkgoPaymentSuccessToast } from '../hooks/useParkgoPaymentSuccessToast';
 
@@ -306,6 +313,11 @@ const UserDashboard = () => {
     });
   };
 
+  const computedMaxDuration = useMemo(
+    () => maxDurationForStartTime(reservationData.time),
+    [reservationData.time]
+  );
+
   const handleCreateReservation = async () => {
     if (!reservationData.date || !reservationData.time || !reservationData.duration) {
       toast('Please fill in date, time, and duration', { variant: 'error' });
@@ -313,7 +325,20 @@ const UserDashboard = () => {
     }
 
     const duration = parseFloat(reservationData.duration) || 1;
+
+    const hoursCheck = validateBookingHours(reservationData.time, duration);
+    if (!hoursCheck.ok) {
+      toast(hoursCheck.error, { variant: 'error' });
+      return;
+    }
+
     const startTime = new Date(`${reservationData.date}T${reservationData.time}`);
+    const now = new Date();
+    if (startTime < now) {
+      toast('Start time is in the past. Please choose a future time.', { variant: 'error' });
+      return;
+    }
+
     const totalAmount = tieredBookingTotalEgp(duration, startTime);
     const endTime = new Date(startTime.getTime() + duration * 60 * 60 * 1000);
 
@@ -334,6 +359,7 @@ const UserDashboard = () => {
             startTime: startTime.toISOString(),
             endTime: endTime.toISOString(),
             totalAmount,
+            slotNo: pendingSlotNo,
             paymentAttempt: Date.now(),
           },
         },
@@ -349,6 +375,7 @@ const UserDashboard = () => {
         endTime: endTime.toISOString(),
         totalAmount,
         paymentMethod: 'cash',
+        slotNo: pendingSlotNo,
       });
 
       if (!result.ok) {
@@ -703,8 +730,11 @@ const UserDashboard = () => {
                       name="time"
                       value={reservationData.time}
                       onChange={handleReservationChange}
+                      min="08:00"
+                      max="17:00"
                       required
                     />
+                    <small className="form-hint-text">ANU hours: {ANU_HOURS_LABEL}</small>
                   </div>
                 </div>
                 <div className="form-row">
@@ -717,7 +747,7 @@ const UserDashboard = () => {
                       value={reservationData.duration}
                       onChange={handleReservationChange}
                       min="1"
-                      max="24"
+                      max={computedMaxDuration}
                       required
                     />
                   </div>
@@ -1013,8 +1043,11 @@ const UserDashboard = () => {
                     name="time"
                     value={reservationData.time}
                     onChange={handleReservationChange}
+                    min="08:00"
+                    max="17:00"
                     required
                   />
+                  <small className="form-hint-text">ANU hours: {ANU_HOURS_LABEL}</small>
                 </div>
               </div>
 
@@ -1028,7 +1061,7 @@ const UserDashboard = () => {
                     value={reservationData.duration}
                     onChange={handleReservationChange}
                     min="1"
-                    max="24"
+                    max={computedMaxDuration}
                     required
                   />
                 </div>

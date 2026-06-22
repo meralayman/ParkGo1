@@ -8,6 +8,8 @@ const {
   parseReservationId,
 } = require("./bookingChat.service");
 
+const { OPEN_HOUR, CLOSE_HOUR, OPERATING_HOURS_MSG, validateOperatingHours } = require("../operatingHours");
+
 const MS_PER_HOUR = 60 * 60 * 1000;
 
 function isCustomerRole(role) {
@@ -70,13 +72,23 @@ function formatSlotsGuidance(available, total, reserved) {
  * @param {number} durationHours
  */
 function buildBookingWindow(now, clock, durationHours) {
+  if (clock.hour24 < OPEN_HOUR || clock.hour24 >= CLOSE_HOUR) {
+    return { start: null, end: null, error: OPERATING_HOURS_MSG };
+  }
+
   const start = new Date(now);
   start.setHours(clock.hour24, clock.minute, 0, 0);
   if (start.getTime() <= now.getTime()) {
     start.setDate(start.getDate() + 1);
   }
-  const dh = Math.min(48, Math.max(0.25, durationHours || 1));
+
+  const maxHours = (CLOSE_HOUR * 60 - (clock.hour24 * 60 + clock.minute)) / 60;
+  const dh = Math.min(maxHours, Math.max(0.25, durationHours || 1));
   const end = new Date(start.getTime() + dh * MS_PER_HOUR);
+
+  const check = validateOperatingHours(start, end);
+  if (!check.ok) return { start: null, end: null, error: check.error };
+
   return { start, end };
 }
 
@@ -555,7 +567,14 @@ async function processChatMessage(opts) {
         };
       }
       const now = new Date();
-      const { start, end } = buildBookingWindow(now, clock, durationHours);
+      const { start, end, error: windowError } = buildBookingWindow(now, clock, durationHours);
+      if (windowError) {
+        return {
+          reply: windowError,
+          quickReplies: defaultQuickReplies(),
+          context: { lastIntent: "book", pendingBook: null },
+        };
+      }
       const pred = await getPredictionForStart(internalApiBase, start);
       const slotLine =
         parsed.entities.slotHint != null

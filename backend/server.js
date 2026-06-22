@@ -31,6 +31,7 @@ const {
   firstHourEgpForPeakLevel,
   EXTRA_PER_HOUR_EGP,
 } = require("./parkingPricing");
+const { validateOperatingHours } = require("./operatingHours");
 
 const app = express();
 if (process.env.TRUST_PROXY === "1" || process.env.NODE_ENV === "production") {
@@ -813,6 +814,12 @@ app.post("/reservations", requireCustomer, bookingRateLimiter, async (req, res) 
     if (Number.isNaN(startDt.getTime()) || Number.isNaN(endDt.getTime()) || endDt <= startDt) {
       return res.status(400).json({ ok: false, error: "Invalid start or end time" });
     }
+
+    const hoursCheck = validateOperatingHours(startDt, endDt);
+    if (!hoursCheck.ok) {
+      return res.status(400).json({ ok: false, error: hoursCheck.error });
+    }
+
     const bookingDurationHours = (endDt.getTime() - startDt.getTime()) / MS_PER_HOUR;
     const peakAtStart = peakInfo(startDt);
     const serverTotalAmount = tieredBookingTotalEgp(
@@ -1947,6 +1954,22 @@ app.listen(PORT, HOST, async () => {
     await ensureAuditLogsTable(pool);
   } catch (e) {
     console.error("[ParkGo] audit logs table:", e?.message || e);
+  }
+  try {
+    await pool.query(`ALTER TABLE reservations DROP CONSTRAINT IF EXISTS reservations_operating_hours`);
+    await pool.query(`
+      ALTER TABLE reservations ADD CONSTRAINT reservations_operating_hours
+      CHECK (
+        EXTRACT(HOUR FROM start_time AT TIME ZONE 'Africa/Cairo') >= 8
+        AND (
+          EXTRACT(HOUR FROM end_time AT TIME ZONE 'Africa/Cairo') < 18
+          OR (EXTRACT(HOUR FROM end_time AT TIME ZONE 'Africa/Cairo') = 18
+              AND EXTRACT(MINUTE FROM end_time AT TIME ZONE 'Africa/Cairo') = 0)
+        )
+      )
+    `);
+  } catch (e) {
+    console.error("[ParkGo] operating hours constraint:", e?.message || e);
   }
   await ensureAdmin();
   await ensureGatekeeper();

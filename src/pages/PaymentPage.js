@@ -79,6 +79,7 @@ const PaymentPage = () => {
           startTime: pending.startTime,
           endTime: pending.endTime,
           totalAmount: pending.totalAmount,
+          slotNo: pending.slotNo,
         })
       );
 
