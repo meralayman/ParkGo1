@@ -20,6 +20,7 @@ import { Banner } from '../../components/Banner';
 import { Colors } from '../../utils/colors';
 import { formatEgp } from '../../utils/formatEgp';
 import { getApiBaseUrl } from '../../utils/config';
+import { sortSlotsForAlexandriaGrid } from '../../utils/slotSorting';
 import { LandingBackground } from '../../components/LandingBackground';
 import { useAuth } from '../../store/AuthContext';
 import {
@@ -69,6 +70,18 @@ function slotLabel(state) {
   if (n === 1) return 'Occupied';
   if (n === 2) return 'Reserved';
   return 'Available';
+}
+
+function slotStateColor(state) {
+  const n = Number(state);
+  if (n === 1) return Colors.warning;
+  if (n === 2) return '#818cf8';
+  return Colors.success;
+}
+
+function slotArea(slotNo) {
+  const m = String(slotNo || '').match(/^([A-Za-z])/);
+  return m ? m[1].toUpperCase() : '?';
 }
 
 const inputStyle = {
@@ -123,6 +136,9 @@ export function AdminDashboardScreen() {
   const [slotModalOpen, setSlotModalOpen] = useState(false);
   const [newSlotNo, setNewSlotNo] = useState('');
   const [slotSaving, setSlotSaving] = useState(false);
+  const [slotFilterText, setSlotFilterText] = useState('');
+  const [slotFilterArea, setSlotFilterArea] = useState('');
+  const [slotFilterState, setSlotFilterState] = useState('');
 
   const [historyUserId, setHistoryUserId] = useState(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -321,6 +337,34 @@ export function AdminDashboardScreen() {
     loadIncidents,
     loadSecurityLogs,
   ]);
+
+  const sortedSlots = useMemo(() => sortSlotsForAlexandriaGrid(slots), [slots]);
+
+  const slotAreas = useMemo(() => {
+    const set = new Set(sortedSlots.map((s) => slotArea(s.slot_no)));
+    return [...set].sort();
+  }, [sortedSlots]);
+
+  const filteredSlots = useMemo(() => {
+    let list = sortedSlots;
+    if (slotFilterText) {
+      const q = slotFilterText.toLowerCase();
+      list = list.filter((s) => String(s.slot_no).toLowerCase().includes(q));
+    }
+    if (slotFilterArea) list = list.filter((s) => slotArea(s.slot_no) === slotFilterArea);
+    if (slotFilterState !== '') {
+      const st = Number(slotFilterState);
+      list = list.filter((s) => Number(s.state) === st);
+    }
+    return list;
+  }, [sortedSlots, slotFilterText, slotFilterArea, slotFilterState]);
+
+  const slotStats = useMemo(() => ({
+    total: slots.length,
+    available: slots.filter((s) => Number(s.state) === 0).length,
+    occupied: slots.filter((s) => Number(s.state) === 1).length,
+    reserved: slots.filter((s) => Number(s.state) === 2).length,
+  }), [slots]);
 
   const paymentSummaryAll = useMemo(() => {
     return reservations.reduce(
@@ -662,63 +706,161 @@ export function AdminDashboardScreen() {
         {activeSection === 'slots' && (
           <Card>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Manage slots</Text>
-              <Pressable onPress={() => setSlotModalOpen(true)}>
-                <Text style={{ color: Colors.logoBlueLight, fontWeight: '800' }}>Add slot</Text>
-              </Pressable>
+              <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '900' }}>Parking Slots</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <Pressable onPress={loadSlots} disabled={slotsLoading}>
+                  <Text style={{ color: Colors.logoBlueLight, fontWeight: '800' }}>
+                    {slotsLoading ? 'Refreshing…' : 'Refresh'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => setSlotModalOpen(true)}>
+                  <Text style={{ color: Colors.logoBlueLight, fontWeight: '800' }}>+ Add</Text>
+                </Pressable>
+              </View>
             </View>
-            {slotsLoading ? (
+            <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 4 }}>
+              All parking bays across zones A–D.
+            </Text>
+
+            {slotsLoading && slots.length === 0 ? (
               <ActivityIndicator style={{ marginTop: 16 }} color={Colors.logoBlueLight} />
+            ) : slots.length === 0 ? (
+              <Text style={{ color: Colors.muted, marginTop: 12 }}>No slots found.</Text>
             ) : (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-                {slots.map((s) => (
-                  <View
-                    key={s.slot_no}
-                    style={{
-                      width: '47%',
-                      minWidth: 140,
-                      padding: 10,
-                      borderRadius: 12,
-                      backgroundColor: Colors.elevated,
-                      borderWidth: 1,
-                      borderColor: Colors.border,
-                      gap: 8,
-                    }}
-                  >
-                    <Text style={{ color: Colors.text, fontWeight: '900' }}>{s.slot_no}</Text>
-                    <Text style={{ color: Colors.muted, fontSize: 12 }}>{slotLabel(s.state)}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {[
-                        [0, 'Free'],
-                        [1, 'Occ'],
-                        [2, 'Res'],
-                      ].map(([st, lbl]) => (
+              <>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+                  {[
+                    { label: 'Total', value: slotStats.total, color: Colors.logoBlue },
+                    { label: 'Available', value: slotStats.available, color: Colors.success },
+                    { label: 'Reserved', value: slotStats.reserved, color: '#6366f1' },
+                    { label: 'Occupied', value: slotStats.occupied, color: Colors.warning },
+                  ].map((s) => (
+                    <View key={s.label} style={{ alignItems: 'center', minWidth: 70 }}>
+                      <View style={{
+                        width: 40, height: 40, borderRadius: 20, backgroundColor: s.color,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>{s.value}</Text>
+                      </View>
+                      <Text style={{ color: Colors.muted, fontSize: 11, marginTop: 4 }}>{s.label}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={[inputStyle, { marginTop: 12 }]}
+                  placeholder="Search slot (e.g. A1, B12)"
+                  placeholderTextColor={Colors.muted}
+                  value={slotFilterText}
+                  onChangeText={setSlotFilterText}
+                  autoCapitalize="none"
+                />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.muted, fontSize: 11, marginBottom: 4 }}>Area</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                      <Pressable
+                        onPress={() => setSlotFilterArea('')}
+                        style={{
+                          paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                          backgroundColor: slotFilterArea === '' ? Colors.logoBlue : Colors.bg,
+                        }}
+                      >
+                        <Text style={{ color: slotFilterArea === '' ? '#fff' : Colors.muted, fontSize: 12, fontWeight: '800' }}>All</Text>
+                      </Pressable>
+                      {slotAreas.map((a) => (
                         <Pressable
-                          key={st}
-                          onPress={() => changeSlotState(s.slot_no, st)}
+                          key={a}
+                          onPress={() => setSlotFilterArea(slotFilterArea === a ? '' : a)}
                           style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 6,
-                            borderRadius: 8,
-                            backgroundColor:
-                              Number(s.state) === st ? Colors.logoBlue : Colors.bg,
+                            paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                            backgroundColor: slotFilterArea === a ? Colors.logoBlue : Colors.bg,
                           }}
                         >
-                          <Text
-                            style={{
-                              color: Number(s.state) === st ? '#fff' : Colors.muted,
-                              fontSize: 11,
-                              fontWeight: '800',
-                            }}
-                          >
-                            {lbl}
-                          </Text>
+                          <Text style={{ color: slotFilterArea === a ? '#fff' : Colors.muted, fontSize: 12, fontWeight: '800' }}>{a}</Text>
                         </Pressable>
                       ))}
-                    </View>
+                    </ScrollView>
                   </View>
-                ))}
-              </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.muted, fontSize: 11, marginBottom: 4 }}>Status</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                      {[
+                        { key: '', label: 'All' },
+                        { key: '0', label: 'Free' },
+                        { key: '1', label: 'Occ' },
+                        { key: '2', label: 'Res' },
+                      ].map((opt) => (
+                        <Pressable
+                          key={opt.key}
+                          onPress={() => setSlotFilterState(slotFilterState === opt.key ? '' : opt.key)}
+                          style={{
+                            paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                            backgroundColor: slotFilterState === opt.key ? Colors.logoBlue : Colors.bg,
+                          }}
+                        >
+                          <Text style={{ color: slotFilterState === opt.key ? '#fff' : Colors.muted, fontSize: 12, fontWeight: '800' }}>{opt.label}</Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+
+                {filteredSlots.length === 0 ? (
+                  <Text style={{ color: Colors.muted, marginTop: 12 }}>No slots match filters.</Text>
+                ) : (
+                  <View style={{ marginTop: 12, gap: 6 }}>
+                    {filteredSlots.map((s) => (
+                      <View
+                        key={s.slot_no}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 10,
+                          borderRadius: 10,
+                          backgroundColor: Colors.elevated,
+                          borderWidth: 1,
+                          borderColor: Colors.border,
+                        }}
+                      >
+                        <Text style={{ color: Colors.text, fontWeight: '900', width: 56 }}>{s.slot_no}</Text>
+                        <Text style={{ color: Colors.muted, fontSize: 12, width: 52 }}>Zone {slotArea(s.slot_no)}</Text>
+                        <View style={{
+                          paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                          backgroundColor: `${slotStateColor(s.state)}22`,
+                          borderWidth: 1, borderColor: `${slotStateColor(s.state)}44`,
+                        }}>
+                          <Text style={{ color: slotStateColor(s.state), fontSize: 11, fontWeight: '800' }}>
+                            {slotLabel(s.state)}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }} />
+                        <View style={{ flexDirection: 'row', gap: 4 }}>
+                          {[
+                            [0, 'Free'],
+                            [1, 'Occ'],
+                            [2, 'Res'],
+                          ].map(([st, lbl]) => (
+                            <Pressable
+                              key={st}
+                              onPress={() => changeSlotState(s.slot_no, st)}
+                              style={{
+                                paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6,
+                                backgroundColor: Number(s.state) === st ? Colors.logoBlue : Colors.bg,
+                              }}
+                            >
+                              <Text style={{ color: Number(s.state) === st ? '#fff' : Colors.muted, fontSize: 10, fontWeight: '800' }}>{lbl}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    ))}
+                    <Text style={{ color: Colors.muted, fontSize: 12, marginTop: 4 }}>
+                      Showing {filteredSlots.length} of {slots.length} slots
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
           </Card>
         )}
