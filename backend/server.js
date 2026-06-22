@@ -290,6 +290,46 @@ async function ensureLateFeeColumns(pool) {
     `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS late_fee_amount DECIMAL(12,2) DEFAULT 0`
   );
 }
+
+async function ensureZoneSlots(pool) {
+  const tbl = await pool.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='parking_slots'`
+  );
+  if (tbl.rowCount === 0) return;
+
+  const zoneCount = await pool.query(
+    `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no ~ '^[A-Da-d]\\d+$'`
+  );
+  if (Number(zoneCount.rows[0].n) > 0) return;
+
+  const numericCount = await pool.query(
+    `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no ~ '^\\d+$'`
+  );
+  if (Number(numericCount.rows[0].n) === 0) return;
+
+  console.log("[ParkGo] Migrating old numeric slots to zone-based slots (A1–D16)…");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM parking_slots WHERE slot_no ~ '^\\d+$'`);
+    const zones = [];
+    for (let i = 1; i <= 90; i++) zones.push(`('A${i}', 0, NOW())`);
+    for (let i = 1; i <= 45; i++) zones.push(`('B${i}', 0, NOW())`);
+    for (let i = 1; i <= 28; i++) zones.push(`('C${i}', 0, NOW())`);
+    for (let i = 1; i <= 16; i++) zones.push(`('D${i}', 0, NOW())`);
+    await client.query(
+      `INSERT INTO parking_slots (slot_no, state, updated_at) VALUES ${zones.join(",")} ON CONFLICT (slot_no) DO NOTHING`
+    );
+    await client.query("COMMIT");
+    console.log("[ParkGo] Zone slots migration complete — 179 slots (A1–A90, B1–B45, C1–C28, D1–D16).");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 /** Earliest check-in before scheduled start_time */
 const EARLY_CHECKIN_MINUTES = Number(process.env.EARLY_CHECKIN_MINUTES) || 60;
 /**
@@ -1970,6 +2010,11 @@ app.listen(PORT, HOST, async () => {
     `);
   } catch (e) {
     console.error("[ParkGo] operating hours constraint:", e?.message || e);
+  }
+  try {
+    await ensureZoneSlots(pool);
+  } catch (e) {
+    console.error("[ParkGo] zone slots migration:", e?.message || e);
   }
   await ensureAdmin();
   await ensureGatekeeper();
