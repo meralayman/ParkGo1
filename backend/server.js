@@ -291,66 +291,66 @@ async function ensureLateFeeColumns(pool) {
   );
 }
 
-async function ensureSlotNoVarchar(pool) {
-  const col = await pool.query(`
-    SELECT data_type FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'reservations' AND column_name = 'slot_no'
-  `);
-  if (col.rowCount === 0) return;
-  const dtype = String(col.rows[0].data_type).toLowerCase();
-  if (dtype.includes("char") || dtype === "text") return;
-  console.log(`[ParkGo] reservations.slot_no is ${dtype} — converting to VARCHAR(50)…`);
-  await pool.query(`ALTER TABLE reservations ALTER COLUMN slot_no TYPE VARCHAR(50) USING slot_no::text`);
-  console.log("[ParkGo] reservations.slot_no converted to VARCHAR(50).");
-}
-
 async function ensureZoneSlots(pool) {
-  await ensureSlotNoVarchar(pool);
-
-  const tbl = await pool.query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='parking_slots'`
-  );
-  if (tbl.rowCount === 0) return;
-
-  const pCol = await pool.query(`
-    SELECT data_type FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'parking_slots' AND column_name = 'slot_no'
-  `);
-  if (pCol.rowCount > 0) {
-    const pType = String(pCol.rows[0].data_type).toLowerCase();
-    if (!pType.includes("char") && pType !== "text") {
-      console.log(`[ParkGo] parking_slots.slot_no is ${pType} — converting to VARCHAR(50)…`);
-      await pool.query(`ALTER TABLE parking_slots ALTER COLUMN slot_no TYPE VARCHAR(50) USING slot_no::text`);
-    }
-  }
-
-  const zoneCount = await pool.query(
-    `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no ~ '^[A-Da-d]\\d+$'`
-  );
-  if (Number(zoneCount.rows[0].n) > 0) return;
-
-  const numericCount = await pool.query(
-    `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no ~ '^\\d+$'`
-  );
-  if (Number(numericCount.rows[0].n) === 0) return;
-
-  console.log("[ParkGo] Migrating old numeric slots to zone-based slots (A1–D16)…");
   const client = await pool.connect();
   try {
+    const tbl = await client.query(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='parking_slots'`
+    );
+    if (tbl.rowCount === 0) return;
+
+    // --- 1. Fix reservations.slot_no if it is INTEGER instead of VARCHAR ---
+    const rCol = await client.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='reservations' AND column_name='slot_no'
+    `);
+    if (rCol.rowCount > 0) {
+      const rType = String(rCol.rows[0].data_type).toLowerCase();
+      if (!rType.includes("char") && rType !== "text") {
+        console.log(`[ParkGo] reservations.slot_no is "${rType}" — converting to VARCHAR(50)…`);
+        await client.query(`ALTER TABLE reservations ALTER COLUMN slot_no TYPE VARCHAR(50) USING slot_no::text`);
+        console.log("[ParkGo] reservations.slot_no → VARCHAR(50) done.");
+      }
+    }
+
+    // --- 2. Check if parking_slots already has zone-based data ---
+    // Cast to text for the regex so it works whether the column is integer or varchar
+    const zoneCount = await client.query(
+      `SELECT COUNT(*) AS n FROM parking_slots WHERE slot_no::text ~ '^[A-Da-d]\\d+$'`
+    );
+    if (Number(zoneCount.rows[0].n) > 0) {
+      console.log("[ParkGo] Zone slots already present — skipping migration.");
+      return;
+    }
+
+    // --- 3. Rebuild parking_slots table with proper VARCHAR schema + 179 zone slots ---
+    console.log("[ParkGo] Replacing old parking_slots with 179 zone-based slots (A1–D16)…");
     await client.query("BEGIN");
-    await client.query(`DELETE FROM parking_slots WHERE slot_no ~ '^\\d+$'`);
+
+    // Drop and recreate to guarantee correct column types (slot_no was likely INTEGER)
+    await client.query(`DROP TABLE IF EXISTS parking_slots CASCADE`);
+    await client.query(`
+      CREATE TABLE parking_slots (
+        slot_no VARCHAR(50) PRIMARY KEY,
+        state INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+    await client.query(`GRANT ALL ON TABLE parking_slots TO parkgo_user`);
+
     const zones = [];
     for (let i = 1; i <= 90; i++) zones.push(`('A${i}', 0, NOW())`);
     for (let i = 1; i <= 45; i++) zones.push(`('B${i}', 0, NOW())`);
     for (let i = 1; i <= 28; i++) zones.push(`('C${i}', 0, NOW())`);
     for (let i = 1; i <= 16; i++) zones.push(`('D${i}', 0, NOW())`);
     await client.query(
-      `INSERT INTO parking_slots (slot_no, state, updated_at) VALUES ${zones.join(",")} ON CONFLICT (slot_no) DO NOTHING`
+      `INSERT INTO parking_slots (slot_no, state, updated_at) VALUES ${zones.join(",")}`
     );
+
     await client.query("COMMIT");
     console.log("[ParkGo] Zone slots migration complete — 179 slots (A1–A90, B1–B45, C1–C28, D1–D16).");
   } catch (e) {
-    await client.query("ROLLBACK");
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
     throw e;
   } finally {
     client.release();
