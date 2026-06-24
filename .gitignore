@@ -27,6 +27,9 @@ ai-planner/**/__pycache__/
 
 # Uploaded incident photos (local dev)
 backend/uploads/
+
+# SSL certificates (self-signed, local dev)
+backend/certs/
 node_modules/
 .env
 __pycache__/

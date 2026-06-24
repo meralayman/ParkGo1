@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifier } from '../context/NotifierContext';
-import Navbar from '../components/Navbar';
 import './Dashboard.css';
 import { formatEgp } from '../utils/formatEgp';
 import { sortSlotsForAlexandriaGrid } from '../utils/slotSorting';
@@ -74,6 +73,7 @@ const AdminDashboard = () => {
     return () => clearInterval(t);
   }, [user, toast]);
   const [activeSection, setActiveSection] = useState('analytics');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [slots, setSlots] = useState([]);
@@ -175,11 +175,11 @@ const AdminDashboard = () => {
   }, [activeSection]);
 
   useEffect(() => {
-    if (activeSection === 'slots') loadSlots();
+    if (activeSection === 'slots' || activeSection === 'analytics') loadSlots();
   }, [activeSection]);
 
   useEffect(() => {
-    if (activeSection === 'reservations') loadReservations();
+    if (activeSection === 'reservations' || activeSection === 'analytics') loadReservations();
   }, [activeSection]);
 
   useEffect(() => {
@@ -440,142 +440,249 @@ const AdminDashboard = () => {
     { totalRevenue: 0, count: 0, byMethod: {} }
   );
 
-  return (
-    <div className="dashboard">
-      <Navbar />
-      <header className="dashboard-header">
-        <div>
-          <h1>Admin Dashboard</h1>
-          <p>Welcome, {user?.firstName} {user?.lastName}</p>
-        </div>
-      </header>
+  const areaStats = useMemo(() => {
+    const areas = {};
+    slots.forEach(s => {
+      const zone = slotArea(s.slot_no);
+      if (!areas[zone]) areas[zone] = { zone, total: 0, available: 0 };
+      areas[zone].total++;
+      if (Number(s.state) === 0) areas[zone].available++;
+    });
+    return Object.values(areas)
+      .sort((a, b) => a.zone.localeCompare(b.zone))
+      .map(a => ({
+        ...a,
+        availablePercent: a.total > 0 ? Math.round((a.available / a.total) * 100) : 0
+      }));
+  }, [slots]);
 
-      <div className="dashboard-content">
-        <div className="admin-tabs">
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActiveSection('analytics')}
-          >
-            Analytics &amp; Dashboard
-          </button>
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'accounts' ? 'active' : ''}`}
-            onClick={() => setActiveSection('accounts')}
-          >
-            Accounts
-          </button>
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'slots' ? 'active' : ''}`}
-            onClick={() => setActiveSection('slots')}
-          >
-            Manage Slots
-          </button>
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'reservations' ? 'active' : ''}`}
-            onClick={() => setActiveSection('reservations')}
-          >
-            Reservation History & Payments
-          </button>
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'incidents' ? 'active' : ''}`}
-            onClick={() => setActiveSection('incidents')}
-          >
-            Incidents Reports
-          </button>
-          <button
-            type="button"
-            className={`admin-tab ${activeSection === 'security-logs' ? 'active' : ''}`}
-            onClick={() => setActiveSection('security-logs')}
-          >
-            Security Logs
-          </button>
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  return (
+    <div className="admin-layout">
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="admin-sidebar-header">
+          <img src={`${process.env.PUBLIC_URL || ''}/parkgo-logo.png`} alt="" className="admin-sidebar-logo-img" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="admin-sidebar-brand-text">
+            <span className="admin-sidebar-brand">ParkGO</span>
+            <span className="admin-sidebar-subtitle">Smart Parking System</span>
+          </div>
         </div>
+        <nav className="admin-sidebar-nav">
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'analytics' ? 'active' : ''}`} onClick={() => { setActiveSection('analytics'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Dashboard</span>
+          </button>
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'accounts' ? 'active' : ''}`} onClick={() => { setActiveSection('accounts'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Accounts</span>
+          </button>
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'slots' ? 'active' : ''}`} onClick={() => { setActiveSection('slots'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            <span>Manage Slots</span>
+          </button>
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'reservations' ? 'active' : ''}`} onClick={() => { setActiveSection('reservations'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Reservations</span>
+          </button>
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'incidents' ? 'active' : ''}`} onClick={() => { setActiveSection('incidents'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Incidents</span>
+          </button>
+          <button type="button" className={`admin-sidebar-item ${activeSection === 'security-logs' ? 'active' : ''}`} onClick={() => { setActiveSection('security-logs'); setSidebarOpen(false); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Security Logs</span>
+          </button>
+        </nav>
+      </aside>
+
+      {sidebarOpen && <div className="admin-sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      <main className="admin-main">
+        <header className="admin-topbar">
+          <button type="button" className="admin-topbar-hamburger" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div className="admin-topbar-left">
+            <h1 className="admin-topbar-greeting">{getGreeting()}, {user?.firstName}</h1>
+            <p className="admin-topbar-sub">Alexandria National University Parking</p>
+          </div>
+          <div className="admin-topbar-search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" className="admin-topbar-search" placeholder="Search for location, slot, or area..." />
+          </div>
+          <div className="admin-topbar-right">
+            <div className="admin-topbar-avatar">{(user?.firstName || '?')[0]}</div>
+            <div className="admin-topbar-user-info">
+              <span className="admin-topbar-user-name">{user?.firstName}</span>
+              <span className="admin-topbar-user-role">Admin</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="admin-main-content">
 
         {activeSection === 'analytics' && (
-          <div className="dashboard-section admin-analytics-wrap">
-            <div className="admin-analytics-header">
-              <h2>Analytics &amp; Dashboard</h2>
+          <div className="admin-dashboard-view">
+            <div className="admin-analytics-toolbar">
               <button type="button" className="btn btn-secondary btn-sm" onClick={loadAnalytics} disabled={analyticsLoading}>
-                {analyticsLoading ? 'Refreshing…' : 'Refresh'}
+                {analyticsLoading ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
-            <p className="parking-overview-hint admin-analytics-intro">
-              Booking counts, peak demand hours (by scheduled start time), most-booked spots, and live lot usage.
-            </p>
 
             {analyticsLoading && !analytics ? (
-              <p className="empty-state">Loading analytics…</p>
+              <p className="empty-state">Loading analytics...</p>
             ) : analyticsError ? (
               <p className="empty-state slots-error">{analyticsError}</p>
             ) : analytics ? (
               <>
-                <div className="stats-container admin-analytics-kpis">
-                  <div className="stat-card">
-                    <h3>Total bookings</h3>
-                    <p className="stat-value">{analytics.totalBookings}</p>
-                    <p className="admin-analytics-kpi-sub">All-time reservation records</p>
-                  </div>
-                  <div className="stat-card">
-                    <h3>Last 7 days</h3>
-                    <p className="stat-value">{analytics.bookingsLast7Days}</p>
-                    <p className="admin-analytics-kpi-sub">New bookings created</p>
-                  </div>
-                  <div className="stat-card">
-                    <h3>Last 30 days</h3>
-                    <p className="stat-value">{analytics.bookingsLast30Days}</p>
-                    <p className="admin-analytics-kpi-sub">New bookings created</p>
-                  </div>
-                  <div className="stat-card">
-                    <h3>Avg. stay (completed)</h3>
-                    <p className="stat-value">
-                      {analytics.avgBookingDurationHours != null
-                        ? `${analytics.avgBookingDurationHours} h`
-                        : '—'}
-                    </p>
-                    <p className="admin-analytics-kpi-sub">Closed bookings only</p>
-                  </div>
-                  <div className="stat-card">
-                    <h3>Revenue (closed)</h3>
-                    <p className="stat-value">{formatEgp(analytics.totalRevenueClosed || 0)}</p>
-                    <p className="admin-analytics-kpi-sub">Sum of recorded totals</p>
-                  </div>
-                </div>
-
-                <div className="admin-analytics-two-col">
-                  <div className="admin-analytics-panel">
-                    <h3 className="admin-analytics-panel-title">Parking usage (live)</h3>
-                    <div className="admin-usage-grid">
-                      <div>
-                        <span className="admin-usage-label">Total spots</span>
-                        <strong className="admin-usage-num">{analytics.parkingSlots.total}</strong>
+                <div className="admin-stats-row">
+                  <div className="admin-stats-cards">
+                    <div className="admin-stat-card">
+                      <div className="admin-stat-icon admin-stat-icon--blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
                       </div>
-                      <div>
-                        <span className="admin-usage-label">Occupied</span>
-                        <strong className="admin-usage-num admin-usage-occupied">{analytics.parkingSlots.occupied}</strong>
+                      <div className="admin-stat-info">
+                        <span className="admin-stat-label">Total Slots</span>
+                        <span className="admin-stat-number">{analytics.parkingSlots.total}</span>
+                        <span className="admin-stat-sub">All Parking Areas</span>
                       </div>
-                      <div>
-                        <span className="admin-usage-label">Available</span>
-                        <strong className="admin-usage-num admin-usage-available">{analytics.parkingSlots.available}</strong>
+                    </div>
+                    <div className="admin-stat-card">
+                      <div className="admin-stat-icon admin-stat-icon--green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                       </div>
-                      <div>
-                        <span className="admin-usage-label">Reserved</span>
-                        <strong className="admin-usage-num">{analytics.parkingSlots.reserved}</strong>
+                      <div className="admin-stat-info">
+                        <span className="admin-stat-label">Available</span>
+                        <span className="admin-stat-number">{analytics.parkingSlots.available}</span>
+                        <span className="admin-stat-sub admin-stat-sub--green">{analytics.parkingSlots.total > 0 ? Math.round((analytics.parkingSlots.available / analytics.parkingSlots.total) * 100) : 0}% Available</span>
                       </div>
-                      <div className="admin-usage-span">
-                        <span className="admin-usage-label">Occupancy rate</span>
-                        <strong className="admin-usage-num">{analytics.parkingSlots.utilizationPercent}%</strong>
-                        <span className="admin-usage-hint">Share of spots currently occupied</span>
+                    </div>
+                    <div className="admin-stat-card">
+                      <div className="admin-stat-icon admin-stat-icon--orange">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>
+                      </div>
+                      <div className="admin-stat-info">
+                        <span className="admin-stat-label">Occupied</span>
+                        <span className="admin-stat-number">{analytics.parkingSlots.occupied}</span>
+                        <span className="admin-stat-sub admin-stat-sub--orange">{analytics.parkingSlots.utilizationPercent}% Occupied</span>
+                      </div>
+                    </div>
+                    <div className="admin-stat-card">
+                      <div className="admin-stat-icon admin-stat-icon--purple">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </div>
+                      <div className="admin-stat-info">
+                        <span className="admin-stat-label">Total Bookings</span>
+                        <span className="admin-stat-number">{analytics.totalBookings}</span>
+                        <span className="admin-stat-sub">All-time reservations</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="admin-analytics-panel">
-                    <h3 className="admin-analytics-panel-title">Bookings by status</h3>
+                  <div className="admin-parking-gauge">
+                    <svg className="admin-gauge-svg" viewBox="0 0 140 140">
+                      <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(148,163,184,0.1)" strokeWidth="12" />
+                      <circle cx="70" cy="70" r="58" fill="none" stroke="url(#gaugeGrad)" strokeWidth="12"
+                        strokeDasharray={`${((analytics.parkingSlots.total > 0 ? (analytics.parkingSlots.available / analytics.parkingSlots.total) : 0) * 364.42).toFixed(1)} 364.42`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 70 70)" />
+                      <defs>
+                        <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#2563eb" />
+                          <stop offset="100%" stopColor="#8b5cf6" />
+                        </linearGradient>
+                      </defs>
+                      <text x="70" y="64" textAnchor="middle" fill="#f8fafc" fontSize="28" fontWeight="700">
+                        {analytics.parkingSlots.total > 0 ? Math.round((analytics.parkingSlots.available / analytics.parkingSlots.total) * 100) : 0}%
+                      </text>
+                      <text x="70" y="84" textAnchor="middle" fill="#94a3b8" fontSize="12">
+                        Available
+                      </text>
+                    </svg>
+                    <span className="admin-gauge-label">Parking Status</span>
+                  </div>
+                </div>
+
+                <div className="admin-dashboard-grid-2">
+                  <div className="admin-panel">
+                    <h3 className="admin-panel-title">Booking Summary</h3>
+                    <div className="admin-kpi-grid">
+                      <div className="admin-kpi-item">
+                        <span className="admin-kpi-label">Last 7 days</span>
+                        <strong className="admin-kpi-value">{analytics.bookingsLast7Days}</strong>
+                      </div>
+                      <div className="admin-kpi-item">
+                        <span className="admin-kpi-label">Last 30 days</span>
+                        <strong className="admin-kpi-value">{analytics.bookingsLast30Days}</strong>
+                      </div>
+                      <div className="admin-kpi-item">
+                        <span className="admin-kpi-label">Avg. Stay</span>
+                        <strong className="admin-kpi-value">{analytics.avgBookingDurationHours != null ? `${analytics.avgBookingDurationHours}h` : '--'}</strong>
+                      </div>
+                      <div className="admin-kpi-item">
+                        <span className="admin-kpi-label">Revenue</span>
+                        <strong className="admin-kpi-value">{formatEgp(analytics.totalRevenueClosed || 0)}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-panel">
+                    <h3 className="admin-panel-title">Slot Availability by Area</h3>
+                    {areaStats.length > 0 ? (
+                      <div className="admin-area-list">
+                        {areaStats.map(area => (
+                          <div key={area.zone} className="admin-area-row">
+                            <span className="admin-area-name">Area {area.zone}</span>
+                            <div className="admin-area-bar">
+                              <div className="admin-area-bar-fill" style={{ width: `${area.availablePercent}%` }} />
+                            </div>
+                            <span className="admin-area-count">{area.available} / {area.total}</span>
+                            <span className="admin-area-percent">{area.availablePercent}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="admin-panel-empty">No slot data available</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="admin-dashboard-grid-2">
+                  <div className="admin-panel">
+                    <h3 className="admin-panel-title">Peak Hours</h3>
+                    {(() => {
+                      const peak = analytics.peakHours || [];
+                      const maxC = Math.max(1, ...peak.map((p) => p.count));
+                      return (
+                        <div className="peak-hours-chart">
+                          {peak.map(({ hour, count }) => (
+                            <div key={hour} className="peak-hour-row">
+                              <span className="peak-hour-label">{String(hour).padStart(2, '0')}:00</span>
+                              <div className="peak-hour-bar-wrap">
+                                <div className="peak-hour-bar" style={{ width: `${(count / maxC) * 100}%` }} />
+                              </div>
+                              <span className="peak-hour-count">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                    {analytics.peakHourTop5 && analytics.peakHourTop5.length > 0 && (
+                      <p className="admin-peak-top">
+                        <strong>Busiest hours:</strong>{' '}
+                        {analytics.peakHourTop5.map((p) => `${String(p.hour).padStart(2, '0')}:00 (${p.count})`).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="admin-panel">
+                    <h3 className="admin-panel-title">Bookings by Status</h3>
                     <ul className="admin-status-list">
                       {Object.entries(analytics.bookingsByStatus || {}).length === 0 ? (
                         <li className="admin-status-empty">No data</li>
@@ -593,46 +700,63 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="admin-analytics-panel admin-analytics-panel--wide">
-                  <h3 className="admin-analytics-panel-title">Peak hours</h3>
-                  <p className="admin-analytics-panel-hint">
-                    Bookings by hour of <strong>scheduled start</strong> (24h clock, server timezone).
-                  </p>
-                  {(() => {
-                    const peak = analytics.peakHours || [];
-                    const maxC = Math.max(1, ...peak.map((p) => p.count));
-                    return (
-                      <div className="peak-hours-chart">
-                        {peak.map(({ hour, count }) => (
-                          <div key={hour} className="peak-hour-row">
-                            <span className="peak-hour-label">
-                              {String(hour).padStart(2, '0')}:00
-                            </span>
-                            <div className="peak-hour-bar-wrap">
-                              <div
-                                className="peak-hour-bar"
-                                style={{ width: `${(count / maxC) * 100}%` }}
-                              />
+                <div className="admin-dashboard-grid-2">
+                  <div className="admin-panel">
+                    <div className="admin-panel-header-row">
+                      <h3 className="admin-panel-title">Recent Reservations</h3>
+                      <button type="button" className="admin-panel-link" onClick={() => setActiveSection('reservations')}>View All</button>
+                    </div>
+                    {reservations.length === 0 ? (
+                      <p className="admin-panel-empty">No reservations yet</p>
+                    ) : (
+                      <div className="admin-recent-list">
+                        {reservations.slice(0, 5).map((r) => (
+                          <div key={r.id} className="admin-recent-item">
+                            <span className={`admin-recent-dot admin-recent-dot--${r.status}`} />
+                            <div className="admin-recent-info">
+                              <span className="admin-recent-slot">{r.slot_no}</span>
+                              <span className="admin-recent-name">{r.first_name} {r.last_name}</span>
                             </div>
-                            <span className="peak-hour-count">{count}</span>
+                            <span className="admin-recent-time">{r.start_time ? new Date(r.start_time).toLocaleDateString() : '--'}</span>
                           </div>
                         ))}
                       </div>
-                    );
-                  })()}
-                  {analytics.peakHourTop5 && analytics.peakHourTop5.length > 0 && (
-                    <p className="admin-peak-top">
-                      <strong>Busiest hours:</strong>{' '}
-                      {analytics.peakHourTop5
-                        .map((p) => `${String(p.hour).padStart(2, '0')}:00 (${p.count})`)
-                        .join(' · ')}
-                    </p>
-                  )}
+                    )}
+                  </div>
+
+                  <div className="admin-panel">
+                    <h3 className="admin-panel-title">Quick Actions</h3>
+                    <div className="admin-quick-actions">
+                      <button type="button" className="admin-quick-action" onClick={() => setActiveSection('slots')}>
+                        <div className="admin-quick-action-icon">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                        </div>
+                        <span>Manage Slots</span>
+                      </button>
+                      <button type="button" className="admin-quick-action" onClick={() => setActiveSection('accounts')}>
+                        <div className="admin-quick-action-icon">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        </div>
+                        <span>Accounts</span>
+                      </button>
+                      <button type="button" className="admin-quick-action" onClick={() => setActiveSection('reservations')}>
+                        <div className="admin-quick-action-icon">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <span>Reservations</span>
+                      </button>
+                      <button type="button" className="admin-quick-action" onClick={() => setActiveSection('incidents')}>
+                        <div className="admin-quick-action-icon">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <span>Incidents</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="admin-analytics-panel">
-                  <h3 className="admin-analytics-panel-title">Most used spots</h3>
-                  <p className="admin-analytics-panel-hint">Ranked by number of bookings (all time).</p>
+                <div className="admin-panel">
+                  <h3 className="admin-panel-title">Most Used Spots</h3>
                   <div className="table-container admin-analytics-table-wrap">
                     <table className="data-table">
                       <thead>
@@ -1144,7 +1268,9 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
-      </div>
+
+        </div>
+      </main>
 
       {showAddModal && (
         <div className="modal-overlay" onClick={() => {

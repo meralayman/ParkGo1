@@ -20,8 +20,8 @@ export function apiForecastUrl() {
   return `${base}/api/forecast`;
 }
 
-/** Local Express (Node API) — same host as Smart Parking Assistant proxy target */
-const EXPRESS_FORECAST_FALLBACK = 'http://127.0.0.1:5000/api/forecast';
+/** Local Express (Node API) — in dev, use relative URL through the proxy */
+const EXPRESS_FORECAST_FALLBACK = '/api/forecast';
 
 /**
  * GET /api/forecast as JSON array. Tries {@link apiForecastUrl} first, then Express :5000 directly
@@ -84,13 +84,7 @@ export function apiUrl(path) {
   if (base && /^https?:\/\//i.test(base)) {
     return `${base}${p}`;
   }
-  if (typeof window !== 'undefined') {
-    const h = window.location.hostname;
-    if (h === 'localhost' || h === '127.0.0.1') {
-      return `http://127.0.0.1:5000${p}`;
-    }
-  }
-  return `http://127.0.0.1:5000${p}`;
+  return p;
 }
 
 /** User-facing hint when fetch fails (connection refused, DNS, etc.) */
@@ -100,7 +94,7 @@ export function apiUnreachableMessage() {
 
 /** Shown when API_BASE is empty in .env but we need to mention where the server should be */
 export function apiBaseForErrors() {
-  return API_BASE || 'http://127.0.0.1:5000';
+  return API_BASE || '';
 }
 
 /**

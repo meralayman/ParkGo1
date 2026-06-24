@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const https = require("https");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
@@ -1975,7 +1976,12 @@ const HOST = process.env.HOST || "0.0.0.0";
 /** How often to cancel confirmed bookings that missed the check-in window (frees slots without waiting for HTTP traffic). */
 const MISSED_CHECKIN_SWEEP_MS = Number(process.env.MISSED_CHECKIN_SWEEP_MS) || 60_000;
 
-app.listen(PORT, HOST, async () => {
+const sslOptions = {
+  key: fs.readFileSync(path.join(__dirname, "certs", "key.pem")),
+  cert: fs.readFileSync(path.join(__dirname, "certs", "cert.pem")),
+};
+
+https.createServer(sslOptions, app).listen(PORT, HOST, async () => {
   try {
     await ensureReservationsStatusConstraint();
   } catch (e) {
@@ -2050,7 +2056,7 @@ app.listen(PORT, HOST, async () => {
     runSweepNoShows();
   }, MISSED_CHECKIN_SWEEP_MS);
   console.log(
-    `API running on http://localhost:${PORT} (check-in deadline after start: ${ARRIVAL_WINDOW_MINUTES} min, sweep every ${MISSED_CHECKIN_SWEEP_MS / 1000}s)\n` +
+    `API running on https://localhost:${PORT} (check-in deadline after start: ${ARRIVAL_WINDOW_MINUTES} min, sweep every ${MISSED_CHECKIN_SWEEP_MS / 1000}s)\n` +
       `[ParkGo] Smart parking: GET /api/smart-recommendations and GET /api/parking/recommendations (restart backend after git pull if the UI shows HTTP 404)`
   );
 });

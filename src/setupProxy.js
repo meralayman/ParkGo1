@@ -5,8 +5,8 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
  * Multipart POST /incidents must not be handled by the CRA dev server (it returns "Cannot POST /incidents").
  */
 module.exports = function setupProxy(app) {
-  const target = 'http://127.0.0.1:5000';
-  const opts = { target, changeOrigin: true };
+  const target = 'https://127.0.0.1:5000';
+  const opts = { target, changeOrigin: true, secure: false };
   /** Ensures /api/* (e.g. /api/forecast) hits Express; package.json "proxy" alone can miss some paths. */
   app.use('/api', createProxyMiddleware(opts));
   app.use('/auth', createProxyMiddleware(opts));
